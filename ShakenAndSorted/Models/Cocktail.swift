@@ -34,35 +34,46 @@ final class Cocktail {
         self.createdAt = createdAt
     }
 
+    var trimmedName: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var hasName: Bool {
+        !trimmedName.isEmpty
+    }
+
     var displayTitle: String {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty { return trimmed }
-        if let first = ingredients.first(where: { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+        if hasName { return trimmedName }
+        if let first = cleanedIngredients.first {
             return first
         }
         return "Untitled"
     }
 
-    var ingredientSummary: String {
-        let cleaned = ingredients
+    var cleanedIngredients: [String] {
+        ingredients
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
-        guard !cleaned.isEmpty else { return "" }
-        if cleaned.count <= 3 {
-            return cleaned.joined(separator: " · ")
-        }
-        return cleaned.prefix(3).joined(separator: " · ") + "…"
+    }
+
+    var ingredientSummary: String {
+        cleanedIngredients.joined(separator: " · ")
     }
 
     var hasPlace: Bool {
         !(placeName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
     }
 
-    static func canSave(name: String, ingredients: [String]) -> Bool {
+    var hasPhoto: Bool {
+        !(photoData?.isEmpty ?? true)
+    }
+
+    static func canSave(name: String, ingredients: [String], photoData: Data? = nil) -> Bool {
         let hasName = !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let hasIngredient = ingredients.contains {
             !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
-        return hasName || hasIngredient
+        let hasPhoto = photoData.map { !$0.isEmpty } ?? false
+        return hasName || hasIngredient || hasPhoto
     }
 }

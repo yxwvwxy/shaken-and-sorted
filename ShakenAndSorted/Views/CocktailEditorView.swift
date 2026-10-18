@@ -20,17 +20,24 @@ struct CocktailEditorView: View {
     @State private var latitude: Double?
     @State private var longitude: Double?
     @State private var showingPlaceSearch = false
+    @State private var showingMenuScan = false
     @State private var showingValidationAlert = false
 
     private var canSave: Bool {
-        Cocktail.canSave(name: name, ingredients: ingredients)
+        Cocktail.canSave(name: name, ingredients: ingredients, photoData: photoData)
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Photo") {
-                    PhotoPickerField(photoData: $photoData)
+                Section {
+                    Button {
+                        showingMenuScan = true
+                    } label: {
+                        Label("Scan from menu", systemImage: "menucard")
+                    }
+                } footer: {
+                    Text("Photo a menu, circle one drink, then edit the name and ingredients before saving.")
                 }
 
                 Section("Name") {
@@ -98,6 +105,10 @@ struct CocktailEditorView: View {
                         }
                     }
                 }
+
+                Section("Photo") {
+                    PhotoPickerField(photoData: $photoData)
+                }
             }
             .scrollContentBackground(.hidden)
             .background(AppTheme.background.ignoresSafeArea())
@@ -113,7 +124,7 @@ struct CocktailEditorView: View {
                         .disabled(!canSave)
                 }
             }
-            .alert("Add a name or at least one ingredient", isPresented: $showingValidationAlert) {
+            .alert("Add a name, an ingredient, or a photo", isPresented: $showingValidationAlert) {
                 Button("OK", role: .cancel) {}
             }
             .sheet(isPresented: $showingPlaceSearch) {
@@ -123,6 +134,11 @@ struct CocktailEditorView: View {
                     latitude: $latitude,
                     longitude: $longitude
                 )
+            }
+            .fullScreenCover(isPresented: $showingMenuScan) {
+                MenuScanView { result in
+                    applyScan(result)
+                }
             }
             .onAppear(perform: loadIfEditing)
         }
@@ -134,6 +150,11 @@ struct CocktailEditorView: View {
         case .add: return "New drink"
         case .edit: return "Edit drink"
         }
+    }
+
+    private func applyScan(_ result: MenuRecognitionResult) {
+        name = result.cleanedName
+        ingredients = result.cleanedIngredients.isEmpty ? [""] : result.cleanedIngredients
     }
 
     private func loadIfEditing() {

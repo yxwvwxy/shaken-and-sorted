@@ -22,8 +22,10 @@
 	<string>1</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo of a menu to fill in the drink.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Add a photo of the cocktail you drank.</string>
+	<string>Choose a cocktail photo or a menu photo.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UIRequiredDeviceCapabilities</key>

@@ -14,28 +14,18 @@ struct CocktailDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                photoHeader
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(cocktail.displayTitle)
+                if cocktail.hasName {
+                    Text(cocktail.trimmedName)
                         .font(.largeTitle.weight(.bold))
                         .foregroundStyle(AppTheme.primaryText)
-
-                    Text(cocktail.createdAt.formatted(date: .long, time: .shortened))
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.secondaryText)
                 }
 
-                if cocktail.hasPlace {
-                    placeRow
-                }
-
-                if !cocktail.ingredients.isEmpty {
+                if !cocktail.cleanedIngredients.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Ingredients")
                             .font(.headline)
                             .foregroundStyle(AppTheme.primaryText)
-                        ForEach(Array(cocktail.ingredients.enumerated()), id: \.offset) { _, ingredient in
+                        ForEach(Array(cocktail.cleanedIngredients.enumerated()), id: \.offset) { _, ingredient in
                             HStack(alignment: .top, spacing: 10) {
                                 Circle()
                                     .fill(AppTheme.accent)
@@ -51,6 +41,16 @@ struct CocktailDetailView: View {
                     .background(AppTheme.card)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
+
+                if cocktail.hasPlace {
+                    placeRow
+                }
+
+                Text(cocktail.createdAt.formatted(date: .long, time: .shortened))
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.secondaryText)
+
+                photoBlock
             }
             .padding(20)
         }
@@ -78,7 +78,7 @@ struct CocktailDetailView: View {
     }
 
     @ViewBuilder
-    private var photoHeader: some View {
+    private var photoBlock: some View {
         if let data = cocktail.photoData, let image = UIImage(data: data) {
             Image(uiImage: image)
                 .resizable()
