@@ -1,8 +1,12 @@
 import Foundation
 import SwiftUI
 import UIKit
+import Vision
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
 
-struct MenuRecognitionResult: Codable, Equatable {
+struct MenuRecognitionResult: Equatable {
     var name: String
     var ingredients: [String]
 
@@ -19,33 +23,11 @@ struct MenuRecognitionResult: Codable, Equatable {
     var hasAnything: Bool {
         !cleanedName.isEmpty || !cleanedIngredients.isEmpty
     }
-
-    init(name: String, ingredients: [String]) {
-        self.name = name
-        self.ingredients = ingredients
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
-        if let list = try? container.decode([String].self, forKey: .ingredients) {
-            ingredients = list
-        } else if let joined = try? container.decode(String.self, forKey: .ingredients) {
-            ingredients = joined
-                .split(whereSeparator: { $0 == "," || $0 == "\n" })
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty }
-        } else {
-            ingredients = []
-        }
-    }
 }
 
 enum MenuRecognitionError: LocalizedError {
     case noCircle
     case cropFailed
-    case missingAPIKey
-    case badResponse(String)
     case emptyRead
 
     var errorDescription: String? {
@@ -54,10 +36,6 @@ enum MenuRecognitionError: LocalizedError {
             return "Circle the drink on the menu first."
         case .cropFailed:
             return "Could not crop that circle. Try a slightly larger loop."
-        case .missingAPIKey:
-            return "Add your OpenAI API key to recognize the menu."
-        case .badResponse(let message):
-            return message
         case .emptyRead:
             return "Could not read a name or ingredients. Try a clearer photo or a tighter circle."
         }
@@ -109,129 +87,138 @@ enum MenuCropper {
     }
 }
 
+/// Reads the circled drink fully on device: Vision OCR for the text, then
+/// Apple's on-device language model (iOS 26+, Apple Intelligence) to pick out
+/// the name and ingredients. Falls back to simple line rules when the model
+/// is not available. No network, no API key, no cost.
 enum MenuRecognizer {
-    static let model = "gpt-4o-mini"
-
-    private static let prompt = """
-    This photo is a cropped piece of a cocktail menu. The user roughly circled one drink. Extra letters, prices, section titles, or a neighboring drink may show at the edges — ignore those.
-
-    Return JSON only, with this shape:
-    {"name":"","ingredients":[]}
-
-    Rules:
-    - name is the cocktail title. Use an empty string if unreadable.
-    - ingredients is an array of ingredient names, one per item. Keep original language. Do not invent.
-    - Do not include prices, ABV, or clearly decorative text.
-    - If nothing can be read, return {"name":"","ingredients":[]}.
-    """
-
     static func recognize(image: UIImage) async throws -> MenuRecognitionResult {
-        let key = APIKeyStore.openAIKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !key.isEmpty else { throw MenuRecognitionError.missingAPIKey }
-        guard let jpeg = image.jpegForAPI() else {
+        let lines = try await readLines(in: image)
+        guard !lines.isEmpty else { throw MenuRecognitionError.emptyRead }
+
+        var result: MenuRecognitionResult?
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            result = await OnDeviceDrinkParser.parse(lines: lines)
+        }
+        #endif
+        if result?.hasAnything != true {
+            result = HeuristicDrinkParser.parse(lines: lines)
+        }
+
+        guard let result, result.hasAnything else { throw MenuRecognitionError.emptyRead }
+        return MenuRecognitionResult(name: result.cleanedName, ingredients: result.cleanedIngredients)
+    }
+
+    /// Text lines in reading order (top to bottom, then left to right).
+    private static func readLines(in image: UIImage) async throws -> [String] {
+        guard let cgImage = image.normalizedUp().cgImage else {
             throw MenuRecognitionError.cropFailed
         }
 
-        let body: [String: Any] = [
-            "model": model,
-            "temperature": 0.1,
-            "response_format": ["type": "json_object"],
-            "messages": [[
-                "role": "user",
-                "content": [
-                    ["type": "text", "text": prompt],
-                    [
-                        "type": "image_url",
-                        "image_url": [
-                            "url": "data:image/jpeg;base64,\(jpeg.base64EncodedString())"
-                        ]
-                    ]
-                ]
-            ]]
-        ]
+        return try await withCheckedThrowingContinuation { continuation in
+            let request = VNRecognizeTextRequest { request, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                let observations = (request.results as? [VNRecognizedTextObservation]) ?? []
+                let lines = observations
+                    .sorted {
+                        let dy = $0.boundingBox.midY - $1.boundingBox.midY
+                        if abs(dy) > 0.02 { return dy > 0 }
+                        return $0.boundingBox.minX < $1.boundingBox.minX
+                    }
+                    .compactMap { $0.topCandidates(1).first?.string }
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+                continuation.resume(returning: lines)
+            }
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = true
+            request.automaticallyDetectsLanguage = true
 
-        guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else {
-            throw MenuRecognitionError.badResponse("Could not build the recognition request.")
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    try VNImageRequestHandler(cgImage: cgImage).perform([request])
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
         }
-
-        var request = URLRequest(url: URL(string: "https://api.openai.com/v1/chat/completions")!)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 60
-        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = httpBody
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        if status < 200 || status >= 300 {
-            throw MenuRecognitionError.badResponse(Self.errorMessage(from: data, status: status))
-        }
-
-        let decoded = try JSONDecoder().decode(OpenAIChatResponse.self, from: data)
-        if let apiError = decoded.error?.message, !apiError.isEmpty {
-            throw MenuRecognitionError.badResponse(apiError)
-        }
-
-        guard let content = decoded.choices.first?.message.content?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-            !content.isEmpty
-        else {
-            throw MenuRecognitionError.badResponse("The model returned an empty reply.")
-        }
-
-        let jsonData = extractJSONData(from: content)
-        let result = try JSONDecoder().decode(MenuRecognitionResult.self, from: jsonData)
-        guard result.hasAnything else { throw MenuRecognitionError.emptyRead }
-        return result
-    }
-
-    private static func extractJSONData(from content: String) -> Data {
-        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let data = trimmed.data(using: .utf8),
-           (try? JSONDecoder().decode(MenuRecognitionResult.self, from: data)) != nil {
-            return data
-        }
-
-        if let start = trimmed.firstIndex(of: "{"),
-           let end = trimmed.lastIndex(of: "}"),
-           start < end {
-            return String(trimmed[start...end]).data(using: .utf8) ?? Data()
-        }
-        return trimmed.data(using: .utf8) ?? Data()
-    }
-
-    private static func errorMessage(from data: Data, status: Int) -> String {
-        if let decoded = try? JSONDecoder().decode(OpenAIChatResponse.self, from: data),
-           let message = decoded.error?.message, !message.isEmpty {
-            return message
-        }
-        return "Recognition failed (\(status))."
     }
 }
 
-private struct OpenAIChatResponse: Decodable {
-    struct Choice: Decodable {
-        struct Message: Decodable {
-            var content: String?
+#if canImport(FoundationModels)
+@available(iOS 26.0, *)
+@Generable
+private struct DrinkDraft {
+    @Guide(description: "The cocktail title exactly as printed. Empty if none.")
+    var name: String
+
+    @Guide(description: "Ingredient names, one per item, in the original language. No prices, ABV, or descriptions.")
+    var ingredients: [String]
+}
+
+@available(iOS 26.0, *)
+private enum OnDeviceDrinkParser {
+    static func parse(lines: [String]) async -> MenuRecognitionResult? {
+        guard case .available = SystemLanguageModel.default.availability else { return nil }
+
+        let session = LanguageModelSession(instructions: """
+        You read OCR text from a cropped piece of a cocktail menu. The user circled one drink. \
+        Text from the edges (prices, section titles, a neighboring drink) may be mixed in — ignore it. \
+        Extract only the circled drink's name and ingredients. Do not invent anything that is not in the text.
+        """)
+
+        do {
+            let response = try await session.respond(
+                to: lines.joined(separator: "\n"),
+                generating: DrinkDraft.self
+            )
+            return MenuRecognitionResult(name: response.content.name, ingredients: response.content.ingredients)
+        } catch {
+            return nil
         }
-        var message: Message
+    }
+}
+#endif
+
+/// Rule-based fallback: first real text line is the name, the rest is split
+/// into ingredients on common menu separators.
+enum HeuristicDrinkParser {
+    static func parse(lines: [String]) -> MenuRecognitionResult {
+        let useful = lines.filter { !isNoise($0) }
+        guard let name = useful.first else {
+            return MenuRecognitionResult(name: "", ingredients: [])
+        }
+
+        let separators: Set<Character> = [",", "，", "、", "·", "•", "/", "|", ";", "；"]
+        let ingredients = useful.dropFirst()
+            .flatMap { $0.split(whereSeparator: { separators.contains($0) }) }
+            .map { stripPrice(String($0)) }
+            .filter { !$0.isEmpty && !isNoise($0) }
+
+        return MenuRecognitionResult(name: stripPrice(name), ingredients: ingredients)
     }
 
-    struct ErrorBody: Decodable {
-        var message: String?
+    /// Prices, ABV, and other lines without real letters.
+    private static func isNoise(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.range(of: #"^[\$¥€£]?\s*\d+([.,]\d+)?\s*(%|abv|ml|oz|元|[\$¥€£])?$"#,
+                         options: [.regularExpression, .caseInsensitive]) != nil {
+            return true
+        }
+        return !trimmed.contains { $0.isLetter }
     }
 
-    var choices: [Choice]
-    var error: ErrorBody?
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        choices = try container.decodeIfPresent([Choice].self, forKey: .choices) ?? []
-        error = try container.decodeIfPresent(ErrorBody.self, forKey: .error)
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case choices, error
+    private static func stripPrice(_ text: String) -> String {
+        text.replacingOccurrences(
+            of: #"\s*[\$¥€£]?\s*\d+([.,]\d+)?\s*[\$¥€£元]?\s*$"#,
+            with: "",
+            options: .regularExpression
+        )
+        .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
@@ -245,18 +232,4 @@ extension UIImage {
         }
     }
 
-    func jpegForAPI(maxSide: CGFloat = 1280, quality: CGFloat = 0.7) -> Data? {
-        let longest = max(size.width, size.height)
-        let source: UIImage
-        if longest > maxSide {
-            let ratio = maxSide / longest
-            let newSize = CGSize(width: size.width * ratio, height: size.height * ratio)
-            source = UIGraphicsImageRenderer(size: newSize).image { _ in
-                draw(in: CGRect(origin: .zero, size: newSize))
-            }
-        } else {
-            source = self
-        }
-        return source.jpegData(compressionQuality: quality)
-    }
 }

@@ -20,7 +20,6 @@
 		A1000000000000000000000B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* Assets.xcassets */; };
 		A1000000000000000000000D /* MenuScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* MenuScanView.swift */; };
 		A1000000000000000000000E /* MenuRecognition.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* MenuRecognition.swift */; };
-		A1000000000000000000000F /* APIKeyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000F /* APIKeyStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -38,7 +37,6 @@
 		A2000000000000000000000C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A2000000000000000000000D /* MenuScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuScanView.swift; sourceTree = "<group>"; };
 		A2000000000000000000000E /* MenuRecognition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuRecognition.swift; sourceTree = "<group>"; };
-		A2000000000000000000000F /* APIKeyStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIKeyStore.swift; sourceTree = "<group>"; };
 		A30000000000000000000001 /* ShakenAndSorted.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ShakenAndSorted.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -118,7 +116,6 @@
 			isa = PBXGroup;
 			children = (
 				A2000000000000000000000E /* MenuRecognition.swift */,
-				A2000000000000000000000F /* APIKeyStore.swift */,
 			);
 			path = Recognition;
 			sourceTree = "<group>";
@@ -204,7 +201,6 @@
 				A1000000000000000000000A /* AppTheme.swift in Sources */,
 				A1000000000000000000000D /* MenuScanView.swift in Sources */,
 				A1000000000000000000000E /* MenuRecognition.swift in Sources */,
-				A1000000000000000000000F /* APIKeyStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

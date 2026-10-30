@@ -12,8 +12,6 @@ struct MenuScanView: View {
     @State private var currentStroke = Path()
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var showingCamera = false
-    @State private var showingAPIKey = false
-    @State private var apiKeyDraft = ""
     @State private var isRecognizing = false
     @State private var errorMessage: String?
     @State private var canvasSize: CGSize = .zero
@@ -34,12 +32,6 @@ struct MenuScanView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("API Key") {
-                        apiKeyDraft = APIKeyStore.openAIKey
-                        showingAPIKey = true
-                    }
-                }
             }
             .safeAreaInset(edge: .bottom) {
                 if image != nil {
@@ -49,9 +41,6 @@ struct MenuScanView: View {
             .fullScreenCover(isPresented: $showingCamera) {
                 CameraPicker(image: $image, isPresented: $showingCamera)
                     .ignoresSafeArea()
-            }
-            .sheet(isPresented: $showingAPIKey) {
-                apiKeySheet
             }
             .alert("Could not recognize", isPresented: Binding(
                 get: { errorMessage != nil },
@@ -219,40 +208,6 @@ struct MenuScanView: View {
         .background(AppTheme.card.ignoresSafeArea(edges: .bottom))
     }
 
-    private var apiKeySheet: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    SecureField("sk-…", text: $apiKeyDraft)
-                        .textContentType(.password)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                } header: {
-                    Text("OpenAI API key")
-                } footer: {
-                    Text("Stored on this iPhone only. Used to read the circled drink. Model: \(MenuRecognizer.model).")
-                }
-            }
-            .scrollContentBackground(.hidden)
-            .background(AppTheme.background.ignoresSafeArea())
-            .navigationTitle("API Key")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { showingAPIKey = false }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        APIKeyStore.openAIKey = apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                        showingAPIKey = false
-                    }
-                    .fontWeight(.semibold)
-                }
-            }
-        }
-        .tint(AppTheme.accent)
-    }
-
     private func loadPhoto(_ item: PhotosPickerItem?) async {
         guard let item else { return }
         if let data = try? await item.loadTransferable(type: Data.self),
@@ -268,12 +223,6 @@ struct MenuScanView: View {
         drawn.addPath(currentStroke)
         guard !drawn.isEmpty else {
             errorMessage = MenuRecognitionError.noCircle.localizedDescription
-            return
-        }
-
-        if !APIKeyStore.hasOpenAIKey {
-            apiKeyDraft = APIKeyStore.openAIKey
-            showingAPIKey = true
             return
         }
 

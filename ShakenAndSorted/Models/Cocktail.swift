@@ -47,6 +47,9 @@ final class Cocktail {
         if let first = cleanedIngredients.first {
             return first
         }
+        if hasPlace, let placeName {
+            return placeName.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         return "Untitled"
     }
 
@@ -68,12 +71,18 @@ final class Cocktail {
         !(photoData?.isEmpty ?? true)
     }
 
-    static func canSave(name: String, ingredients: [String], photoData: Data? = nil) -> Bool {
+    static func canSave(
+        name: String,
+        ingredients: [String],
+        photoData: Data? = nil,
+        placeName: String? = nil
+    ) -> Bool {
         let hasName = !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let hasIngredient = ingredients.contains {
             !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
         let hasPhoto = photoData.map { !$0.isEmpty } ?? false
-        return hasName || hasIngredient || hasPhoto
+        let hasPlace = !(placeName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        return hasName || hasIngredient || hasPhoto || hasPlace
     }
 }

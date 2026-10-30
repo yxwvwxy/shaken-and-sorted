@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import MapKit
 import UIKit
 
 struct CocktailDetailView: View {
@@ -118,22 +117,30 @@ struct CocktailDetailView: View {
     }
 
     private func openInMaps() {
-        if let lat = cocktail.latitude, let lon = cocktail.longitude {
-            let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
-            let placemark = MKPlacemark(coordinate: coordinate)
-            let item = MKMapItem(placemark: placemark)
-            item.name = cocktail.placeName
-            item.openInMaps()
+        let text = [cocktail.placeName, cocktail.placeAddress]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        let coordinate = cocktail.latitude.flatMap { lat in
+            cocktail.longitude.map { lon in "\(lat),\(lon)" }
+        }
+        let query = text.isEmpty ? (coordinate ?? "") : text
+
+        // Google Maps app if installed, otherwise the Google Maps website.
+        var appURL = URLComponents(string: "comgooglemaps://")
+        appURL?.queryItems = [URLQueryItem(name: "q", value: query)]
+            + (coordinate.map { [URLQueryItem(name: "center", value: $0)] } ?? [])
+        if let url = appURL?.url, UIApplication.shared.canOpenURL(url) {
+            UIApplication.shared.open(url)
             return
         }
 
-        var components = URLComponents(string: "http://maps.apple.com/")
-        let query = [cocktail.placeName, cocktail.placeAddress]
-            .compactMap { $0 }
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
-        components?.queryItems = [URLQueryItem(name: "q", value: query)]
-        if let url = components?.url {
+        var webURL = URLComponents(string: "https://www.google.com/maps/search/")
+        webURL?.queryItems = [
+            URLQueryItem(name: "api", value: "1"),
+            URLQueryItem(name: "query", value: query)
+        ]
+        if let url = webURL?.url {
             UIApplication.shared.open(url)
         }
     }

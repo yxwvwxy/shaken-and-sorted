@@ -38,9 +38,9 @@ struct CocktailListView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Spacer()
-            Image(systemName: "wineglass")
-                .font(.system(size: 48, weight: .light))
-                .foregroundStyle(AppTheme.accent)
+            MartiniGlass()
+                .stroke(AppTheme.accent, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                .frame(width: 44, height: 52)
             Text("No drinks yet")
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(AppTheme.primaryText)
@@ -84,5 +84,25 @@ struct CocktailListView: View {
         for index in offsets {
             modelContext.delete(cocktails[index])
         }
+    }
+}
+
+/// Martini (cocktail) glass outline — SF Symbols has no cocktail glass.
+private struct MartiniGlass: Shape {
+    func path(in rect: CGRect) -> Path {
+        let bowlBottom = rect.minY + rect.height * 0.48
+        var path = Path()
+        // Bowl
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.midX, y: bowlBottom))
+        path.closeSubpath()
+        // Stem
+        path.move(to: CGPoint(x: rect.midX, y: bowlBottom))
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+        // Foot
+        path.move(to: CGPoint(x: rect.midX - rect.width * 0.3, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.midX + rect.width * 0.3, y: rect.maxY))
+        return path
     }
 }

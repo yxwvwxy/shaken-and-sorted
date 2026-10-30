@@ -24,7 +24,7 @@ struct CocktailEditorView: View {
     @State private var showingValidationAlert = false
 
     private var canSave: Bool {
-        Cocktail.canSave(name: name, ingredients: ingredients, photoData: photoData)
+        Cocktail.canSave(name: name, ingredients: ingredients, photoData: photoData, placeName: placeName)
     }
 
     var body: some View {
@@ -124,7 +124,7 @@ struct CocktailEditorView: View {
                         .disabled(!canSave)
                 }
             }
-            .alert("Add a name, an ingredient, or a photo", isPresented: $showingValidationAlert) {
+            .alert("Add a name, an ingredient, a photo, or a place", isPresented: $showingValidationAlert) {
                 Button("OK", role: .cancel) {}
             }
             .sheet(isPresented: $showingPlaceSearch) {

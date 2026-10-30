@@ -13,9 +13,15 @@ struct ShakenAndSortedApp: App {
         }
     }()
 
+    init() {
+        // Menu recognition is on device now; drop the old OpenAI key if one was saved.
+        UserDefaults.standard.removeObject(forKey: "openai_api_key")
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .preferredColorScheme(.light)
         }
         .modelContainer(sharedModelContainer)
     }
