@@ -19,6 +19,12 @@ struct CocktailDetailView: View {
                         .foregroundStyle(AppTheme.primaryText)
                 }
 
+                if let price = cocktail.trimmedPrice {
+                    Text(price)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(AppTheme.secondaryText)
+                }
+
                 if !cocktail.cleanedIngredients.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Ingredients")

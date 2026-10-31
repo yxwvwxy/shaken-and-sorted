@@ -2,13 +2,11 @@ import Foundation
 import SwiftUI
 import UIKit
 import Vision
-#if canImport(FoundationModels)
-import FoundationModels
-#endif
 
 struct MenuRecognitionResult: Equatable {
     var name: String
     var ingredients: [String]
+    var price: String = ""
 
     var cleanedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -20,29 +18,210 @@ struct MenuRecognitionResult: Equatable {
             .filter { !$0.isEmpty }
     }
 
+    var cleanedPrice: String {
+        price.trimmingCharacters(in: CharacterSet(charactersIn: ",;").union(.whitespacesAndNewlines))
+    }
+
     var hasAnything: Bool {
-        !cleanedName.isEmpty || !cleanedIngredients.isEmpty
+        !cleanedName.isEmpty || !cleanedIngredients.isEmpty || !cleanedPrice.isEmpty
     }
 }
 
 enum MenuRecognitionError: LocalizedError {
-    case noCircle
-    case cropFailed
-    case emptyRead
+    case unreadableImage
+    case noText
+    case nothingHighlighted
 
     var errorDescription: String? {
         switch self {
-        case .noCircle:
-            return "Circle the drink on the menu first."
-        case .cropFailed:
-            return "Could not crop that circle. Try a slightly larger loop."
-        case .emptyRead:
-            return "Could not read a name or ingredients. Try a clearer photo or a tighter circle."
+        case .unreadableImage:
+            return "Could not read that photo. Try another one."
+        case .noText:
+            return "No text found in this photo. Try a clearer, closer shot of the menu."
+        case .nothingHighlighted:
+            return "Highlight the drink's name, ingredients, or price first."
         }
     }
 }
 
-enum MenuCropper {
+/// One word on the menu photo, as found by on-device text recognition.
+struct MenuWord: Identifiable {
+    let id: Int
+    let text: String
+    /// Whether the printed text has a space (or a line break) before this word.
+    /// False inside "Single-Barrel" and between Chinese or Japanese words.
+    let spaceBefore: Bool
+    /// Normalized to the photo, origin top-left.
+    let box: CGRect
+}
+
+enum HighlightMode: CaseIterable {
+    case name
+    case ingredients
+    case price
+
+    var title: String {
+        switch self {
+        case .name: return "Name"
+        case .ingredients: return "Ingredients"
+        case .price: return "Price"
+        }
+    }
+
+    var color: UIColor {
+        switch self {
+        case .name: return .systemYellow
+        case .ingredients: return .systemGreen
+        case .price: return .systemPink
+        }
+    }
+}
+
+struct HighlightStroke {
+    var mode: HighlightMode
+    /// Canvas coordinates (unzoomed).
+    var points: [CGPoint]
+    /// Pen width in canvas coordinates; thinner when drawn zoomed in.
+    var width: CGFloat
+}
+
+/// Reads all text on the menu photo once, fully on device (Vision). No network, no API key.
+enum MenuTextReader {
+    static func words(in image: UIImage) async throws -> [MenuWord] {
+        guard let cgImage = image.normalizedUp().cgImage else {
+            throw MenuRecognitionError.unreadableImage
+        }
+
+        let observations: [VNRecognizedTextObservation] = try await withCheckedThrowingContinuation { continuation in
+            let request = VNRecognizeTextRequest { request, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: (request.results as? [VNRecognizedTextObservation]) ?? [])
+                }
+            }
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = true
+            request.automaticallyDetectsLanguage = true
+
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    try VNImageRequestHandler(cgImage: cgImage).perform([request])
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+
+        // Reading order: top to bottom, then left to right.
+        let lines = observations.sorted {
+            let dy = $0.boundingBox.midY - $1.boundingBox.midY
+            if abs(dy) > 0.01 { return dy > 0 }
+            return $0.boundingBox.minX < $1.boundingBox.minX
+        }
+
+        var words: [MenuWord] = []
+        for line in lines {
+            guard let candidate = line.topCandidates(1).first else { continue }
+            let text = candidate.string
+            for range in tokenRanges(in: text) {
+                guard let box = try? candidate.boundingBox(for: range)?.boundingBox else { continue }
+                let spaceBefore = range.lowerBound == text.startIndex
+                    || text[text.index(before: range.lowerBound)].isWhitespace
+                words.append(MenuWord(
+                    id: words.count,
+                    text: String(text[range]),
+                    spaceBefore: spaceBefore,
+                    box: CGRect(x: box.minX, y: 1 - box.maxY, width: box.width, height: box.height)
+                ))
+            }
+        }
+        return words
+    }
+
+    /// Words with the punctuation stuck to them ("Rye," / "“The"), so commas
+    /// survive for splitting ingredients. Uses word segmentation so Chinese and
+    /// Japanese, which have no spaces, still split into words.
+    private static func tokenRanges(in text: String) -> [Range<String.Index>] {
+        var wordRanges: [Range<String.Index>] = []
+        text.enumerateSubstrings(in: text.startIndex..<text.endIndex, options: .byWords) { _, range, _, _ in
+            wordRanges.append(range)
+        }
+
+        var tokens: [Range<String.Index>] = []
+        var previousEnd = text.startIndex
+        for (index, range) in wordRanges.enumerated() {
+            var start = range.lowerBound
+            while start > previousEnd, !text[text.index(before: start)].isWhitespace {
+                start = text.index(before: start)
+            }
+            let limit = index + 1 < wordRanges.count ? wordRanges[index + 1].lowerBound : text.endIndex
+            var end = range.upperBound
+            while end < limit, !text[end].isWhitespace {
+                end = text.index(after: end)
+            }
+            tokens.append(start..<end)
+            previousEnd = end
+        }
+        return tokens
+    }
+}
+
+/// Turns highlighter strokes into a drink: the words each stroke passes over.
+enum MenuHighlightReader {
+    /// Which stroke (by index) picked each word. A word goes to the first stroke that touches it.
+    static func assignments(words: [MenuWord], strokes: [HighlightStroke], fit: CGRect) -> [Int: Int] {
+        var picked: [Int: Int] = [:]
+        for (strokeIndex, stroke) in strokes.enumerated() {
+            let samples = densePoints(stroke.points, step: 2)
+            guard let first = samples.first else { continue }
+            let reach = stroke.width * 0.3
+            let bounds = samples.reduce(CGRect(origin: first, size: .zero)) {
+                $0.union(CGRect(origin: $1, size: .zero))
+            }.insetBy(dx: -reach, dy: -reach)
+
+            for word in words where picked[word.id] == nil {
+                let rect = canvasRect(for: word, fit: fit)
+                guard rect.intersects(bounds) else { continue }
+                if samples.contains(where: { distance(from: $0, to: rect) <= reach }) {
+                    picked[word.id] = strokeIndex
+                }
+            }
+        }
+        return picked
+    }
+
+    static func result(words: [MenuWord], strokes: [HighlightStroke], fit: CGRect) -> MenuRecognitionResult {
+        let picked = assignments(words: words, strokes: strokes, fit: fit)
+
+        func highlighted(_ mode: HighlightMode) -> [MenuWord] {
+            words.filter { word in picked[word.id].map { strokes[$0].mode == mode } ?? false }
+        }
+        let name = stripPrice(joined(highlighted(.name)))
+        let price = joined(highlighted(.price))
+
+        // One group per ingredient stroke, in reading order of where each starts.
+        var groups: [Int: [MenuWord]] = [:]
+        for word in words {
+            guard let strokeIndex = picked[word.id], strokes[strokeIndex].mode == .ingredients else { continue }
+            groups[strokeIndex, default: []].append(word)
+        }
+        let ingredients = groups.values
+            .sorted { ($0.first?.id ?? 0) < ($1.first?.id ?? 0) }
+            .flatMap { splitIngredients(joined($0)) }
+
+        return MenuRecognitionResult(name: name, ingredients: ingredients, price: price)
+    }
+
+    static func canvasRect(for word: MenuWord, fit: CGRect) -> CGRect {
+        CGRect(
+            x: fit.minX + word.box.minX * fit.width,
+            y: fit.minY + word.box.minY * fit.height,
+            width: word.box.width * fit.width,
+            height: word.box.height * fit.height
+        )
+    }
+
     static func aspectFitRect(imageSize: CGSize, in container: CGSize) -> CGRect {
         guard imageSize.width > 0, imageSize.height > 0,
               container.width > 0, container.height > 0
@@ -57,159 +236,30 @@ enum MenuCropper {
         return CGRect(origin: origin, size: size)
     }
 
-    static func crop(
-        image: UIImage,
-        path: Path,
-        containerSize: CGSize,
-        expand: CGFloat = 36
-    ) -> UIImage? {
-        let upright = image.normalizedUp()
-        let fit = aspectFitRect(imageSize: upright.size, in: containerSize)
-        guard fit.width > 1, fit.height > 1, !path.isEmpty else { return nil }
-
-        var box = path.boundingRect.insetBy(dx: -expand, dy: -expand)
-        box = box.intersection(fit)
-        guard box.width > 12, box.height > 12 else { return nil }
-
-        let imageBox = CGRect(
-            x: (box.minX - fit.minX) / fit.width * upright.size.width,
-            y: (box.minY - fit.minY) / fit.height * upright.size.height,
-            width: box.width / fit.width * upright.size.width,
-            height: box.height / fit.height * upright.size.height
-        )
-
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = upright.scale
-        let renderer = UIGraphicsImageRenderer(size: imageBox.size, format: format)
-        return renderer.image { _ in
-            upright.draw(at: CGPoint(x: -imageBox.origin.x, y: -imageBox.origin.y))
+    /// Joins words the way they were printed: spaced, except inside "Single-Barrel" or Chinese text.
+    static func joined(_ words: [MenuWord]) -> String {
+        words.reduce(into: "") { text, word in
+            if !text.isEmpty, word.spaceBefore { text += " " }
+            text += word.text
         }
     }
-}
 
-/// Reads the circled drink fully on device: Vision OCR for the text, then
-/// Apple's on-device language model (iOS 26+, Apple Intelligence) to pick out
-/// the name and ingredients. Falls back to simple line rules when the model
-/// is not available. No network, no API key, no cost.
-enum MenuRecognizer {
-    static func recognize(image: UIImage) async throws -> MenuRecognitionResult {
-        let lines = try await readLines(in: image)
-        guard !lines.isEmpty else { throw MenuRecognitionError.emptyRead }
-
-        var result: MenuRecognitionResult?
-        #if canImport(FoundationModels)
-        if #available(iOS 26.0, *) {
-            result = await OnDeviceDrinkParser.parse(lines: lines)
-        }
-        #endif
-        if result?.hasAnything != true {
-            result = HeuristicDrinkParser.parse(lines: lines)
-        }
-
-        guard let result, result.hasAnything else { throw MenuRecognitionError.emptyRead }
-        return MenuRecognitionResult(name: result.cleanedName, ingredients: result.cleanedIngredients)
-    }
-
-    /// Text lines in reading order (top to bottom, then left to right).
-    private static func readLines(in image: UIImage) async throws -> [String] {
-        guard let cgImage = image.normalizedUp().cgImage else {
-            throw MenuRecognitionError.cropFailed
-        }
-
-        return try await withCheckedThrowingContinuation { continuation in
-            let request = VNRecognizeTextRequest { request, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                    return
+    /// Splits a highlighted run like "Rye, Yellow Chartreuse & Orange Bitters" into items.
+    static func splitIngredients(_ text: String) -> [String] {
+        let separators: Set<Character> = [",", "，", "、", "·", "•", "/", "|", ";", "；", "&"]
+        return text
+            .split(whereSeparator: { separators.contains($0) })
+            .map { piece in
+                // Commas inside quoted names leave stray quote marks behind; drop them.
+                var item = stripPrice(String(piece))
+                    .filter { !"“”\"".contains($0) }
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "*.").union(.whitespaces))
+                for joiner in ["or ", "and "] where item.lowercased().hasPrefix(joiner) {
+                    item = String(item.dropFirst(joiner.count))
                 }
-                let observations = (request.results as? [VNRecognizedTextObservation]) ?? []
-                let lines = observations
-                    .sorted {
-                        let dy = $0.boundingBox.midY - $1.boundingBox.midY
-                        if abs(dy) > 0.02 { return dy > 0 }
-                        return $0.boundingBox.minX < $1.boundingBox.minX
-                    }
-                    .compactMap { $0.topCandidates(1).first?.string }
-                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    .filter { !$0.isEmpty }
-                continuation.resume(returning: lines)
+                return item
             }
-            request.recognitionLevel = .accurate
-            request.usesLanguageCorrection = true
-            request.automaticallyDetectsLanguage = true
-
-            DispatchQueue.global(qos: .userInitiated).async {
-                do {
-                    try VNImageRequestHandler(cgImage: cgImage).perform([request])
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
-        }
-    }
-}
-
-#if canImport(FoundationModels)
-@available(iOS 26.0, *)
-@Generable
-private struct DrinkDraft {
-    @Guide(description: "The cocktail title exactly as printed. Empty if none.")
-    var name: String
-
-    @Guide(description: "Ingredient names, one per item, in the original language. No prices, ABV, or descriptions.")
-    var ingredients: [String]
-}
-
-@available(iOS 26.0, *)
-private enum OnDeviceDrinkParser {
-    static func parse(lines: [String]) async -> MenuRecognitionResult? {
-        guard case .available = SystemLanguageModel.default.availability else { return nil }
-
-        let session = LanguageModelSession(instructions: """
-        You read OCR text from a cropped piece of a cocktail menu. The user circled one drink. \
-        Text from the edges (prices, section titles, a neighboring drink) may be mixed in — ignore it. \
-        Extract only the circled drink's name and ingredients. Do not invent anything that is not in the text.
-        """)
-
-        do {
-            let response = try await session.respond(
-                to: lines.joined(separator: "\n"),
-                generating: DrinkDraft.self
-            )
-            return MenuRecognitionResult(name: response.content.name, ingredients: response.content.ingredients)
-        } catch {
-            return nil
-        }
-    }
-}
-#endif
-
-/// Rule-based fallback: first real text line is the name, the rest is split
-/// into ingredients on common menu separators.
-enum HeuristicDrinkParser {
-    static func parse(lines: [String]) -> MenuRecognitionResult {
-        let useful = lines.filter { !isNoise($0) }
-        guard let name = useful.first else {
-            return MenuRecognitionResult(name: "", ingredients: [])
-        }
-
-        let separators: Set<Character> = [",", "，", "、", "·", "•", "/", "|", ";", "；"]
-        let ingredients = useful.dropFirst()
-            .flatMap { $0.split(whereSeparator: { separators.contains($0) }) }
-            .map { stripPrice(String($0)) }
-            .filter { !$0.isEmpty && !isNoise($0) }
-
-        return MenuRecognitionResult(name: stripPrice(name), ingredients: ingredients)
-    }
-
-    /// Prices, ABV, and other lines without real letters.
-    private static func isNoise(_ text: String) -> Bool {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.range(of: #"^[\$¥€£]?\s*\d+([.,]\d+)?\s*(%|abv|ml|oz|元|[\$¥€£])?$"#,
-                         options: [.regularExpression, .caseInsensitive]) != nil {
-            return true
-        }
-        return !trimmed.contains { $0.isLetter }
+            .filter { $0.contains(where: \.isLetter) }
     }
 
     private static func stripPrice(_ text: String) -> String {
@@ -219,6 +269,27 @@ enum HeuristicDrinkParser {
             options: .regularExpression
         )
         .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func densePoints(_ points: [CGPoint], step: CGFloat) -> [CGPoint] {
+        guard var previous = points.first else { return [] }
+        var result = [previous]
+        for point in points.dropFirst() {
+            let length = hypot(point.x - previous.x, point.y - previous.y)
+            let count = max(1, Int(length / step))
+            for i in 1...count {
+                let t = CGFloat(i) / CGFloat(count)
+                result.append(CGPoint(x: previous.x + (point.x - previous.x) * t, y: previous.y + (point.y - previous.y) * t))
+            }
+            previous = point
+        }
+        return result
+    }
+
+    private static func distance(from point: CGPoint, to rect: CGRect) -> CGFloat {
+        let dx = max(rect.minX - point.x, 0, point.x - rect.maxX)
+        let dy = max(rect.minY - point.y, 0, point.y - rect.maxY)
+        return hypot(dx, dy)
     }
 }
 
@@ -231,5 +302,4 @@ extension UIImage {
             draw(in: CGRect(origin: .zero, size: size))
         }
     }
-
 }

@@ -11,6 +11,8 @@ final class Cocktail {
     var placeAddress: String?
     var latitude: Double?
     var longitude: Double?
+    /// As printed on the menu, currency included ("$19", "¥88").
+    var price: String?
     var createdAt: Date
 
     init(
@@ -21,6 +23,7 @@ final class Cocktail {
         placeAddress: String? = nil,
         latitude: Double? = nil,
         longitude: Double? = nil,
+        price: String? = nil,
         createdAt: Date = .now
     ) {
         self.id = UUID()
@@ -31,6 +34,7 @@ final class Cocktail {
         self.placeAddress = placeAddress
         self.latitude = latitude
         self.longitude = longitude
+        self.price = price
         self.createdAt = createdAt
     }
 
@@ -61,6 +65,11 @@ final class Cocktail {
 
     var ingredientSummary: String {
         cleanedIngredients.joined(separator: " · ")
+    }
+
+    var trimmedPrice: String? {
+        let trimmed = price?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     var hasPlace: Bool {

@@ -19,6 +19,7 @@ struct CocktailEditorView: View {
     @State private var placeAddress: String?
     @State private var latitude: Double?
     @State private var longitude: Double?
+    @State private var price = ""
     @State private var showingPlaceSearch = false
     @State private var showingMenuScan = false
     @State private var showingValidationAlert = false
@@ -37,18 +38,18 @@ struct CocktailEditorView: View {
                         Label("Scan from menu", systemImage: "menucard")
                     }
                 } footer: {
-                    Text("Photo a menu, circle one drink, then edit the name and ingredients before saving.")
+                    Text("Photo a menu, highlight one drink, then edit anything before saving.")
                 }
 
                 Section("Name") {
-                    TextField("Cocktail name", text: $name)
+                    TextField("Cocktail name", text: $name, axis: .vertical)
                         .textInputAutocapitalization(.words)
                 }
 
                 Section("Ingredients") {
                     ForEach(ingredients.indices, id: \.self) { index in
                         HStack {
-                            TextField("Ingredient", text: $ingredients[index])
+                            TextField("Ingredient", text: $ingredients[index], axis: .vertical)
                                 .textInputAutocapitalization(.never)
                             if ingredients.count > 1 {
                                 Button(role: .destructive) {
@@ -65,6 +66,10 @@ struct CocktailEditorView: View {
                     } label: {
                         Label("Add ingredient", systemImage: "plus.circle")
                     }
+                }
+
+                Section("Price") {
+                    TextField("$16", text: $price)
                 }
 
                 Section("Where") {
@@ -155,6 +160,9 @@ struct CocktailEditorView: View {
     private func applyScan(_ result: MenuRecognitionResult) {
         name = result.cleanedName
         ingredients = result.cleanedIngredients.isEmpty ? [""] : result.cleanedIngredients
+        if !result.cleanedPrice.isEmpty {
+            price = result.cleanedPrice
+        }
     }
 
     private func loadIfEditing() {
@@ -166,6 +174,12 @@ struct CocktailEditorView: View {
         placeAddress = cocktail.placeAddress
         latitude = cocktail.latitude
         longitude = cocktail.longitude
+        price = cocktail.price ?? ""
+    }
+
+    private var trimmedPrice: String? {
+        let trimmed = price.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private func save() {
@@ -187,7 +201,8 @@ struct CocktailEditorView: View {
                 placeName: placeName,
                 placeAddress: placeAddress,
                 latitude: latitude,
-                longitude: longitude
+                longitude: longitude,
+                price: trimmedPrice
             )
             modelContext.insert(cocktail)
         case .edit(let cocktail):
@@ -198,6 +213,7 @@ struct CocktailEditorView: View {
             cocktail.placeAddress = placeAddress
             cocktail.latitude = latitude
             cocktail.longitude = longitude
+            cocktail.price = trimmedPrice
         }
 
         dismiss()
