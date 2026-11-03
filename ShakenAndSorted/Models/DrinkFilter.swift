@@ -47,6 +47,7 @@ struct IngredientEntry: Identifiable, Hashable {
 
 enum AppTab: Hashable {
     case drinks
+    case recipes
     case ingredients
 }
 
@@ -178,6 +179,13 @@ final class DrinkFilter {
         ratings = []
         dateRange = .allTime
         sort = .newest
+    }
+
+    /// Switches to the Drinks tab with this drink open.
+    func open(_ cocktail: Cocktail) {
+        clearFilters()
+        drinksPath = [cocktail]
+        selectedTab = .drinks
     }
 
     /// Switches to the Drinks tab showing only drinks with this ingredient.

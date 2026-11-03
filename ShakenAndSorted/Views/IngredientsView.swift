@@ -4,7 +4,7 @@ import SwiftData
 /// Every ingredient from every logged drink, grouped by category, with the main
 /// spirits split into subcategories.
 struct IngredientsView: View {
-    @Query(sort: \Cocktail.createdAt, order: .reverse) private var cocktails: [Cocktail]
+    @Query(filter: Cocktail.loggedDrinks, sort: \Cocktail.createdAt, order: .reverse) private var cocktails: [Cocktail]
     @Query private var choices: [IngredientCategoryChoice]
     @State private var searchText = ""
 

@@ -10,6 +10,9 @@ struct ContentView: View {
             CocktailListView()
                 .tabItem { Label("Drinks", systemImage: "list.bullet.rectangle") }
                 .tag(AppTab.drinks)
+            RecipesView()
+                .tabItem { Label("Recipes", systemImage: "book") }
+                .tag(AppTab.recipes)
             IngredientsView()
                 .tabItem { Label("Ingredients", systemImage: "square.grid.2x2") }
                 .tag(AppTab.ingredients)

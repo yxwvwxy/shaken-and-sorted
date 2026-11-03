@@ -24,6 +24,7 @@
 		A10000000000000000000010 /* IngredientsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* IngredientsView.swift */; };
 		A10000000000000000000011 /* IngredientAmount.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* IngredientAmount.swift */; };
 		A10000000000000000000012 /* DrinkFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* DrinkFilter.swift */; };
+		A10000000000000000000013 /* RecipesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* RecipesView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -45,6 +46,7 @@
 		A20000000000000000000010 /* IngredientsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IngredientsView.swift; sourceTree = "<group>"; };
 		A20000000000000000000011 /* IngredientAmount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IngredientAmount.swift; sourceTree = "<group>"; };
 		A20000000000000000000012 /* DrinkFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrinkFilter.swift; sourceTree = "<group>"; };
+		A20000000000000000000013 /* RecipesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipesView.swift; sourceTree = "<group>"; };
 		A30000000000000000000001 /* ShakenAndSorted.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ShakenAndSorted.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -112,6 +114,7 @@
 				A20000000000000000000009 /* PlaceSearchView.swift */,
 				A2000000000000000000000D /* MenuScanView.swift */,
 				A20000000000000000000010 /* IngredientsView.swift */,
+				A20000000000000000000013 /* RecipesView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -217,6 +220,7 @@
 				A10000000000000000000010 /* IngredientsView.swift in Sources */,
 				A10000000000000000000011 /* IngredientAmount.swift in Sources */,
 				A10000000000000000000012 /* DrinkFilter.swift in Sources */,
+				A10000000000000000000013 /* RecipesView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

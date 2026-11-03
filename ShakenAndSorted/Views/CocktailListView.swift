@@ -4,7 +4,7 @@ import SwiftData
 struct CocktailListView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(DrinkFilter.self) private var filter
-    @Query(sort: \Cocktail.createdAt, order: .reverse) private var cocktails: [Cocktail]
+    @Query(filter: Cocktail.loggedDrinks, sort: \Cocktail.createdAt, order: .reverse) private var cocktails: [Cocktail]
     @Query private var choices: [IngredientCategoryChoice]
     @State private var showingAdd = false
     @State private var showingSettings = false

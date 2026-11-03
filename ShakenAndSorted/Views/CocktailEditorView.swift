@@ -3,15 +3,19 @@ import SwiftData
 
 enum CocktailEditorMode {
     case add
+    case addRecipe
     case edit(Cocktail)
 }
 
-/// Adding a drink (a sheet with Cancel / Save) or a logged drink's own page, which is
-/// editable right away and saves changes when you leave it.
+/// Adding a drink or recipe (a sheet with Cancel / Save), or a saved one's own page,
+/// which is editable right away and saves as you go. Recipes skip rating, price,
+/// date and place, and get a source link and Mark as Made.
 struct CocktailEditorView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(DrinkFilter.self) private var drinkFilter
+    @Query(filter: Cocktail.loggedDrinks, sort: \Cocktail.createdAt, order: .reverse) private var loggedDrinks: [Cocktail]
 
     let mode: CocktailEditorMode
 
@@ -25,6 +29,7 @@ struct CocktailEditorView: View {
     @State private var price = ""
     @State private var date = Date.now
     @State private var rating: DrinkRating?
+    @State private var sourceURL = ""
     @State private var amountDisplay: AmountDisplay = .asWritten
     @State private var showingPlaceSearch = false
     @State private var showingMenuScan = false
@@ -35,7 +40,11 @@ struct CocktailEditorView: View {
     @FocusState private var focus: IngredientField?
 
     private var canSave: Bool {
-        Cocktail.canSave(name: name, ingredients: ingredients.map(\.text), photoData: photos.first, placeName: placeName)
+        // For a recipe the source link stands in for the place.
+        Cocktail.canSave(
+            name: name, ingredients: ingredients.map(\.text), photoData: photos.first,
+            placeName: isRecipe ? trimmedSourceURL : placeName
+        )
     }
 
     private var isEditing: Bool {
@@ -43,9 +52,28 @@ struct CocktailEditorView: View {
         return false
     }
 
+    private var isRecipe: Bool {
+        switch mode {
+        case .add: return false
+        case .addRecipe: return true
+        case .edit(let cocktail): return cocktail.isRecipeEntry
+        }
+    }
+
+    private var trimmedSourceURL: String? {
+        let trimmed = sourceURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    /// Drinks logged from this recipe, newest first.
+    private var madeDrinks: [Cocktail] {
+        guard case .edit(let cocktail) = mode, cocktail.isRecipeEntry else { return [] }
+        return loggedDrinks.filter { $0.recipeID == cocktail.id }
+    }
+
     var body: some View {
         switch mode {
-        case .add:
+        case .add, .addRecipe:
             NavigationStack { form }
                 .tint(AppTheme.accent)
         case .edit:
@@ -56,14 +84,20 @@ struct CocktailEditorView: View {
 
     private var form: some View {
         Form {
+            if isRecipe, isEditing {
+                markAsMadeSection
+            }
+
             Section {
                 Button {
                     showingMenuScan = true
                 } label: {
-                    Label("Scan from menu", systemImage: "menucard")
+                    Label(isRecipe ? "Scan a recipe" : "Scan from menu", systemImage: "menucard")
                 }
             } footer: {
-                Text("Photo a menu, highlight one drink, then edit anything before saving.")
+                Text(isRecipe
+                     ? "Photo a recipe card or a screenshot, highlight the name and ingredients."
+                     : "Photo a menu, highlight one drink, then edit anything before saving.")
             }
 
             Section("Name") {
@@ -73,64 +107,18 @@ struct CocktailEditorView: View {
 
             ingredientsSection
 
-            Section {
-                HStack(spacing: 8) {
-                    ForEach(DrinkRating.allCases) { option in
-                        Button {
-                            rating = rating == option ? nil : option
-                        } label: {
-                            Text(option.title)
-                                .font(.subheadline.weight(.medium))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.75)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .foregroundStyle(rating == option ? option.textColor : AppTheme.primaryText)
-                                .background(
-                                    rating == option ? option.color : AppTheme.photoPlaceholder,
-                                    in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            } header: {
-                Text("Rating")
-            } footer: {
-                Text("Optional. Tap again to clear.")
+            if isRecipe {
+                sourceSection
+            } else {
+                loggedOnlySections
             }
-
-            Section("Price") {
-                TextField("$16", text: $price)
-            }
-
-            Section("When") {
-                DatePicker("Date", selection: $date, in: ...Date.now.addingTimeInterval(24 * 60 * 60), displayedComponents: .date)
-            }
-
-            whereSection
 
             Section("Photo") {
                 PhotoPickerField(photos: $photos)
             }
 
             if isEditing {
-                Section {
-                    Button(role: .destructive) {
-                        showingDeleteConfirm = true
-                    } label: {
-                        Text("Delete drink")
-                            .frame(maxWidth: .infinity)
-                    }
-                    // Attached here so the confirmation points at this button.
-                    .confirmationDialog("Delete this drink?", isPresented: $showingDeleteConfirm, titleVisibility: .visible) {
-                        Button("Delete", role: .destructive, action: deleteDrink)
-                    } message: {
-                        Text("This can't be undone.")
-                    }
-                } footer: {
-                    Text("Changes are saved automatically.")
-                }
+                deleteSection
             }
         }
         .scrollContentBackground(.hidden)
@@ -180,7 +168,9 @@ struct CocktailEditorView: View {
                 Button("OK", role: .cancel) {}
             }
         } message: {
-            Text("Add at least one of these: a name, an ingredient, a place, or a photo.")
+            Text(isRecipe
+                 ? "Add at least one of these: a name, an ingredient, a link, or a photo."
+                 : "Add at least one of these: a name, an ingredient, a place, or a photo.")
         }
         .sheet(isPresented: $showingPlaceSearch) {
             PlaceSearchView(
@@ -205,6 +195,114 @@ struct CocktailEditorView: View {
         .onChange(of: snapshot) {
             // Save as you go, so nothing is lost even if the app is closed on this page.
             if isEditing { persist() }
+        }
+    }
+
+    @ViewBuilder
+    private var loggedOnlySections: some View {
+            Section {
+                HStack(spacing: 8) {
+                    ForEach(DrinkRating.allCases) { option in
+                        Button {
+                            rating = rating == option ? nil : option
+                        } label: {
+                            Text(option.title)
+                                .font(.subheadline.weight(.medium))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.75)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .foregroundStyle(rating == option ? option.textColor : AppTheme.primaryText)
+                                .background(
+                                    rating == option ? option.color : AppTheme.photoPlaceholder,
+                                    in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            } header: {
+                Text("Rating")
+            } footer: {
+                Text("Optional. Tap again to clear.")
+            }
+
+            Section("Price") {
+                TextField("$16", text: $price)
+            }
+
+            Section("When") {
+                DatePicker("Date", selection: $date, in: ...Date.now.addingTimeInterval(24 * 60 * 60), displayedComponents: .date)
+            }
+
+            whereSection
+    }
+
+    private var deleteSection: some View {
+        Section {
+            Button(role: .destructive) {
+                showingDeleteConfirm = true
+            } label: {
+                Text(isRecipe ? "Delete recipe" : "Delete drink")
+                    .frame(maxWidth: .infinity)
+            }
+            // Attached here so the confirmation points at this button.
+            .confirmationDialog(isRecipe ? "Delete this recipe?" : "Delete this drink?",
+                                isPresented: $showingDeleteConfirm, titleVisibility: .visible) {
+                Button("Delete", role: .destructive, action: deleteDrink)
+            } message: {
+                Text(isRecipe ? "Drinks you logged from it are kept." : "This can't be undone.")
+            }
+        } footer: {
+            Text("Changes are saved automatically.")
+        }
+    }
+
+    private var markAsMadeSection: some View {
+        Section {
+            Button(action: markAsMade) {
+                Label("Mark as Made", systemImage: "checkmark.circle")
+                    .font(.headline)
+            }
+            ForEach(madeDrinks) { drink in
+                Button {
+                    drinkFilter.open(drink)
+                } label: {
+                    HStack {
+                        Text(drink.createdAt.formatted(date: .abbreviated, time: .omitted))
+                            .foregroundStyle(AppTheme.primaryText)
+                        Spacer()
+                        if let rating = drink.drinkRating {
+                            RatingBadge(rating: rating)
+                        }
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(AppTheme.tertiaryText)
+                    }
+                }
+            }
+        } header: {
+            Text(madeDrinks.isEmpty ? "Not made yet" : (madeDrinks.count == 1 ? "Made once" : "Made \(madeDrinks.count) times"))
+        } footer: {
+            Text("Mark as Made logs a copy in Drinks, dated today, to rate and photograph. The recipe stays here.")
+        }
+    }
+
+    private var sourceSection: some View {
+        Section {
+            TextField("Paste a post link", text: $sourceURL)
+                .keyboardType(.URL)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            if let link = trimmedSourceURL.flatMap(URL.init(string:)), link.scheme != nil {
+                Link(destination: link) {
+                    Label("Open original post", systemImage: "arrow.up.right.square")
+                }
+            }
+        } header: {
+            Text("Source")
+        } footer: {
+            Text("Instagram, Xiaohongshu or any link, to go back to the original video.")
         }
     }
 
@@ -347,7 +445,8 @@ struct CocktailEditorView: View {
     private var title: String {
         switch mode {
         case .add: return "New drink"
-        case .edit: return "Drink"
+        case .addRecipe: return "New recipe"
+        case .edit(let cocktail): return cocktail.isRecipeEntry ? "Recipe" : "Drink"
         }
     }
 
@@ -401,6 +500,7 @@ struct CocktailEditorView: View {
         longitude = cocktail.longitude
         price = cocktail.price ?? ""
         date = cocktail.createdAt
+        sourceURL = cocktail.sourceURL ?? ""
     }
 
     /// Everything on the page, to notice any edit.
@@ -408,7 +508,7 @@ struct CocktailEditorView: View {
         EditorSnapshot(
             name: name, ingredients: ingredients, photos: photos,
             placeName: placeName, placeAddress: placeAddress, latitude: latitude, longitude: longitude,
-            price: price, date: date, rating: rating
+            price: price, date: date, rating: rating, sourceURL: sourceURL
         )
     }
 
@@ -447,8 +547,10 @@ struct CocktailEditorView: View {
             longitude: longitude,
             price: trimmedPrice,
             ingredientAmounts: fields.amounts,
-            rating: rating,
-            createdAt: date
+            rating: isRecipe ? nil : rating,
+            createdAt: isRecipe ? .now : date,
+            isRecipe: isRecipe,
+            sourceURL: isRecipe ? trimmedSourceURL : nil
         ))
         try? modelContext.save()
         dismiss()
@@ -469,9 +571,30 @@ struct CocktailEditorView: View {
         cocktail.latitude = latitude
         cocktail.longitude = longitude
         cocktail.price = trimmedPrice
-        cocktail.createdAt = date
+        if cocktail.isRecipeEntry {
+            cocktail.sourceURL = trimmedSourceURL
+        } else {
+            cocktail.createdAt = date
+        }
         // Write now; SwiftData's own autosave can be too late if the app is closed right after.
         try? modelContext.save()
+    }
+
+    /// Logs a copy of this recipe as a drink made today and opens it in Drinks.
+    private func markAsMade() {
+        guard case .edit(let recipe) = mode else { return }
+        persist()
+        let fields = ingredientFields
+        let drink = Cocktail(
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            ingredients: fields.names,
+            ingredientAmounts: fields.amounts,
+            createdAt: .now,
+            recipeID: recipe.id
+        )
+        modelContext.insert(drink)
+        try? modelContext.save()
+        drinkFilter.open(drink)
     }
 
     private func deleteDrink() {
@@ -505,6 +628,7 @@ private struct EditorSnapshot: Equatable {
     var price: String
     var date: Date
     var rating: DrinkRating?
+    var sourceURL: String
 }
 
 private enum IngredientField: Hashable {

@@ -21,6 +21,12 @@ final class Cocktail {
     /// `DrinkRating` raw value; nil until rated.
     var rating: Int?
     var createdAt: Date
+    /// True for a saved recipe you want to make; nil or false for a drink you logged.
+    var isRecipe: Bool?
+    /// Where a recipe came from, such as an Instagram or Xiaohongshu post.
+    var sourceURL: String?
+    /// For a logged drink made from a recipe, that recipe's `id`.
+    var recipeID: UUID?
 
     init(
         name: String = "",
@@ -34,7 +40,10 @@ final class Cocktail {
         price: String? = nil,
         ingredientAmounts: [String]? = nil,
         rating: DrinkRating? = nil,
-        createdAt: Date = .now
+        createdAt: Date = .now,
+        isRecipe: Bool = false,
+        sourceURL: String? = nil,
+        recipeID: UUID? = nil
     ) {
         self.id = UUID()
         self.name = name
@@ -49,7 +58,17 @@ final class Cocktail {
         self.ingredientAmounts = ingredientAmounts
         self.rating = rating?.rawValue
         self.createdAt = createdAt
+        self.isRecipe = isRecipe ? true : nil
+        self.sourceURL = sourceURL
+        self.recipeID = recipeID
     }
+
+    var isRecipeEntry: Bool { isRecipe == true }
+
+    /// Logged drinks only, leaving out saved recipes. Drinks from before recipes existed
+    /// have no flag at all, and the store treats "no value != true" as false, so check nil too.
+    static let loggedDrinks = #Predicate<Cocktail> { $0.isRecipe == nil || $0.isRecipe == false }
+    static let recipes = #Predicate<Cocktail> { $0.isRecipe == true }
 
     var trimmedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)

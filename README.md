@@ -1,18 +1,25 @@
 # Shaken & Sorted
 
-iPhone app to log cocktails you've drunk — name, ingredients, price, photo, place, and date — and see every ingredient you've had, sorted by kind.
+iPhone app to log the cocktails you drink and make, save recipes you want to try, and see every ingredient you've had, sorted by kind.
 
 Everything stays on your phone. No account, no server, no API key.
 
 ## Features
 
 **Drinks**
-- Timeline of every drink, newest first
-- Fields: name, ingredients, price, date, place, photo
-- Save as soon as **any one** of name, ingredients, photo, or place is filled
+- Timeline of every drink you've had or made; tap one to edit it right there (changes save as you go)
+- Fields: name, ingredients with amounts, rating, price, date, place, photos
+- Save needs **at least one** of name, ingredient, place, or photo; otherwise the app says so
+- Amounts are written your way (`2 oz`, `¾ oz`, `2 dashes`), with unit buttons above the keyboard and an oz / ml view that never changes what you wrote
 - Type a comma in an ingredient to start the next one
-- Date defaults to today and can be changed
-- Tap the photo to view it full screen; pinch or double-tap to zoom
+- Rating: Nuh uh, Meh, Not bad, Love it
+- Several photos per drink: press and hold to drag them into order (the first is the cover), tap to view full screen and zoom
+- Search drinks, ingredients, categories (Whiskey, or just Rye) and places, with suggestions as you type
+- Filter & Sort: newest or oldest first, or by rating; filter by rating and date range
+
+**Recipes tab**
+- Drinks you want to make, with amounts and a link to the Instagram or Xiaohongshu post
+- **Mark as Made** logs a copy in Drinks, dated today, to rate and photograph; the recipe shows how often you've made it
 
 **Scan from menu** (free, fully on device)
 - Take or pick a photo of a menu, then swipe over words like a highlighter:
@@ -20,18 +27,16 @@ Everything stays on your phone. No account, no server, no API key.
 - Pinch to zoom, two fingers to move, Undo / Clear to fix mistakes
 - Ingredients are split on the menu's own punctuation (`,` `&` `and` `·` `/`), keeping names like `Brown Butter-Washed Rye` together
 - ALL-CAPS menu text becomes Title Case; abbreviations such as XO or VSOP stay as printed
-- The menu photo is saved as the drink's photo
+- The menu photo is added to the drink's photos
 
 **Places**
-- Search a bar by name, or keep your own text
-- Tap the place on a drink to open it in Apple Maps or Google Maps
-- Pick a default map app in **Settings** (gear icon); long-press a place to choose another
+- With location allowed, bars nearby are listed first, and a few letters (`lombar`) are enough to find a place, best match then nearest
+- Open a drink's place in Apple Maps or Google Maps; pick a default in **Settings** (gear icon)
 
 **Ingredients tab**
-- Every ingredient you've logged, grouped into categories:
-  Whiskey, Gin, Vodka, Rum, Tequila & Mezcal, Brandy, Other Spirits, Liqueurs, Vermouth & Aperitifs, Bitters,
-  Citrus & Acids, Sweeteners & Syrups, Juices & Fresh, Mixers & Bubbles, Dairy & Texture, Garnishes
-- Sorted automatically from the name; tap an ingredient to fix its category or see which drinks used it
+- Every ingredient you've logged, grouped into categories, with the main spirits split further
+  (Bourbon, Rye, Scotch, Irish, Japanese; White, Aged, Dark Rum, Agricole; Tequila, Mezcal; Cognac, Armagnac, Pisco, Calvados)
+- Sorted automatically from the name; tap an ingredient to fix its category, see its drinks, or show them in Drinks
 
 ## Install it on your own iPhone
 
@@ -62,4 +67,4 @@ To try it without a phone, choose any iPhone simulator in step 7 instead.
 
 - Data is stored on device with SwiftData. Deleting the app deletes your drinks.
 - Menu text recognition uses Apple's Vision framework on the phone; nothing is uploaded.
-- The app asks for photo and camera access only when you add a photo or scan a menu.
+- The app asks for photo and camera access only when you add a photo or scan a menu, and for location only when you pick a place.
