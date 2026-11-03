@@ -205,11 +205,6 @@ struct MenuScanView: View {
                 .multilineTextAlignment(.center)
 
             HStack(spacing: 10) {
-                PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                    Label("Photo", systemImage: "photo")
-                }
-                .buttonStyle(.bordered)
-
                 if UIImagePickerController.isSourceTypeAvailable(.camera) {
                     Button {
                         showingCamera = true
@@ -218,6 +213,11 @@ struct MenuScanView: View {
                     }
                     .buttonStyle(.bordered)
                 }
+
+                PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                    Label("Photo", systemImage: "photo")
+                }
+                .buttonStyle(.bordered)
 
                 Button {
                     strokes.removeLast()

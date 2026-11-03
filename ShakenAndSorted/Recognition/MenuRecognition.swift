@@ -74,9 +74,9 @@ enum HighlightMode: CaseIterable {
 
     var color: UIColor {
         switch self {
-        case .name: return .systemYellow
+        case .name: return .systemBlue
         case .ingredients: return .systemGreen
-        case .price: return .systemPink
+        case .price: return .systemYellow
         }
     }
 }

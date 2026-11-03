@@ -6,21 +6,32 @@ struct CocktailRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if cocktail.hasName {
-                Text(cocktail.trimmedName)
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(cocktail.displayTitle)
                     .font(.headline)
-                    .foregroundStyle(AppTheme.primaryText)
+                    .foregroundStyle(cocktail.hasName ? AppTheme.primaryText : AppTheme.tertiaryText)
+                Spacer(minLength: 0)
+                if let rating = cocktail.drinkRating {
+                    RatingBadge(rating: rating)
+                }
             }
 
             if !cocktail.cleanedIngredients.isEmpty {
                 VStack(alignment: .leading, spacing: 2) {
                     ForEach(Array(cocktail.cleanedIngredients.enumerated()), id: \.offset) { _, ingredient in
-                        Text(ingredient)
-                            .font(.subheadline)
-                            .foregroundStyle(AppTheme.secondaryText)
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text("•")
+                            Text(ingredient)
+                        }
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.secondaryText)
                     }
                 }
             }
+
+            Text(cocktail.createdAt.formatted(date: .abbreviated, time: .omitted))
+                .font(.caption2)
+                .foregroundStyle(AppTheme.tertiaryText)
 
             if cocktail.hasPlace, let place = cocktail.placeName {
                 HStack(spacing: 4) {
@@ -32,10 +43,6 @@ struct CocktailRowView: View {
                 .font(.caption)
                 .foregroundStyle(AppTheme.secondaryText)
             }
-
-            Text(cocktail.createdAt.formatted(date: .abbreviated, time: .omitted))
-                .font(.caption2)
-                .foregroundStyle(AppTheme.tertiaryText)
 
             if let data = cocktail.photoData, let image = UIImage(data: data) {
                 Image(uiImage: image)
@@ -49,5 +56,36 @@ struct CocktailRowView: View {
             }
         }
         .padding(.vertical, 6)
+    }
+}
+
+/// A rating as a small filled tag in its own color.
+struct RatingBadge: View {
+    let rating: DrinkRating
+
+    var body: some View {
+        Text(rating.title)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(rating.textColor)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(rating.color, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+    }
+}
+
+extension DrinkRating {
+    /// Google Sheets' "light 3" pastels: light red, yellow, blue and green.
+    var color: Color {
+        switch self {
+        case .notForMe: return Color(red: 0xF4 / 255, green: 0xCC / 255, blue: 0xCC / 255)
+        case .meh: return Color(red: 0xFF / 255, green: 0xF2 / 255, blue: 0xCC / 255)
+        case .notBad: return Color(red: 0xCF / 255, green: 0xE2 / 255, blue: 0xF3 / 255)
+        case .loveIt: return Color(red: 0xD9 / 255, green: 0xEA / 255, blue: 0xD3 / 255)
+        }
+    }
+
+    /// The pastels are light, so the text stays dark on all of them.
+    var textColor: Color {
+        AppTheme.primaryText
     }
 }

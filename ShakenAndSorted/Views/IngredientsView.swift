@@ -1,7 +1,8 @@
 import SwiftUI
 import SwiftData
 
-/// Every ingredient from every logged drink, grouped by category.
+/// Every ingredient from every logged drink, grouped by category, with the main
+/// spirits split into subcategories.
 struct IngredientsView: View {
     @Query(sort: \Cocktail.createdAt, order: .reverse) private var cocktails: [Cocktail]
     @Query private var choices: [IngredientCategoryChoice]
@@ -10,7 +11,7 @@ struct IngredientsView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if entries.isEmpty {
+                if catalog.entries.isEmpty {
                     emptyState
                 } else {
                     list
@@ -25,22 +26,34 @@ struct IngredientsView: View {
         .tint(AppTheme.accent)
     }
 
+    private var catalog: IngredientCatalog {
+        IngredientCatalog(cocktails: cocktails, choices: choices)
+    }
+
     private var list: some View {
         List {
             ForEach(sections, id: \.category) { section in
                 Section {
-                    ForEach(section.entries) { entry in
-                        NavigationLink(value: entry) {
-                            HStack {
-                                Text(entry.name)
-                                    .foregroundStyle(AppTheme.primaryText)
-                                Spacer()
-                                Text("\(entry.cocktails.count)")
-                                    .font(.subheadline)
-                                    .foregroundStyle(AppTheme.tertiaryText)
-                            }
+                    ForEach(section.groups, id: \.subcategory) { group in
+                        if let subcategory = group.subcategory {
+                            Text(subcategory.title)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(AppTheme.tertiaryText)
+                                .listRowBackground(AppTheme.card)
                         }
-                        .listRowBackground(AppTheme.card)
+                        ForEach(group.entries) { entry in
+                            NavigationLink(value: entry) {
+                                HStack {
+                                    Text(entry.name)
+                                        .foregroundStyle(AppTheme.primaryText)
+                                    Spacer()
+                                    Text("\(entry.cocktails.count)")
+                                        .font(.subheadline)
+                                        .foregroundStyle(AppTheme.tertiaryText)
+                                }
+                            }
+                            .listRowBackground(AppTheme.card)
+                        }
                     }
                 } header: {
                     Text(section.category.title)
@@ -64,66 +77,53 @@ struct IngredientsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// Ingredients merged across drinks by their normalized spelling.
-    private var entries: [IngredientEntry] {
-        let picked = Dictionary(choices.map { ($0.key, $0.category) }, uniquingKeysWith: { first, _ in first })
-        var byKey: [String: IngredientEntry] = [:]
-        for cocktail in cocktails {
-            for name in cocktail.cleanedIngredients {
-                let key = IngredientKey.normalized(name)
-                if byKey[key] == nil {
-                    byKey[key] = IngredientEntry(
-                        key: key,
-                        name: name,
-                        category: picked[key] ?? IngredientCategory.guess(for: name),
-                        cocktails: []
-                    )
-                }
-                if byKey[key]?.cocktails.contains(where: { $0.id == cocktail.id }) == false {
-                    byKey[key]?.cocktails.append(cocktail)
-                }
-            }
-        }
-        return Array(byKey.values)
+    private struct SubcategoryGroup {
+        var subcategory: IngredientSubcategory?
+        var entries: [IngredientEntry]
     }
 
-    private var sections: [(category: IngredientCategory, entries: [IngredientEntry])] {
+    private var sections: [(category: IngredientCategory, groups: [SubcategoryGroup])] {
         let query = searchText.trimmingCharacters(in: .whitespaces)
-        let shown = entries.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
-        let grouped = Dictionary(grouping: shown, by: \.category)
+        let shown = catalog.entries.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
+        let byCategory = Dictionary(grouping: shown, by: \.kind.category)
         return IngredientCategory.allCases.compactMap { category in
-            guard let items = grouped[category], !items.isEmpty else { return nil }
-            return (category, items.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending })
+            guard let items = byCategory[category], !items.isEmpty else { return nil }
+            let alphabetical = items.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            if category.subcategories.isEmpty {
+                return (category, [SubcategoryGroup(subcategory: nil, entries: alphabetical)])
+            }
+            let bySubcategory = Dictionary(grouping: alphabetical) { $0.kind.subcategory }
+            let groups = category.subcategories.compactMap { subcategory in
+                bySubcategory[subcategory].map { SubcategoryGroup(subcategory: subcategory, entries: $0) }
+            }
+            return (category, groups)
         }
     }
-}
-
-struct IngredientEntry: Identifiable, Hashable {
-    let key: String
-    /// Spelling from the most recent drink that has it.
-    let name: String
-    let category: IngredientCategory
-    var cocktails: [Cocktail]
-
-    var id: String { key }
-
-    static func == (lhs: IngredientEntry, rhs: IngredientEntry) -> Bool { lhs.key == rhs.key }
-    func hash(into hasher: inout Hasher) { hasher.combine(key) }
 }
 
 /// One ingredient: its category (changeable) and the drinks it was in.
 private struct IngredientDetailView: View {
     let entry: IngredientEntry
     @Environment(\.modelContext) private var modelContext
+    @Environment(DrinkFilter.self) private var drinkFilter
     @Query private var choices: [IngredientCategoryChoice]
-    @State private var category: IngredientCategory = .uncategorized
+    @State private var kind = IngredientKind(category: .uncategorized)
 
     var body: some View {
         List {
             Section {
-                Picker("Category", selection: $category) {
+                Picker("Category", selection: $kind) {
                     ForEach(IngredientCategory.allCases) { category in
-                        Text(category.title).tag(category)
+                        if category.subcategories.isEmpty {
+                            Text(category.title).tag(IngredientKind(category: category))
+                        } else {
+                            Section(category.title) {
+                                ForEach(category.subcategories) { subcategory in
+                                    Text(subcategory.title)
+                                        .tag(IngredientKind(category: category, subcategory: subcategory))
+                                }
+                            }
+                        }
                     }
                 }
                 .pickerStyle(.menu)
@@ -132,20 +132,27 @@ private struct IngredientDetailView: View {
             }
             .listRowBackground(AppTheme.card)
 
-            Section(entry.cocktails.count == 1 ? "In 1 drink" : "In \(entry.cocktails.count) drinks") {
+            Section {
                 ForEach(entry.cocktails) { cocktail in
                     NavigationLink {
-                        CocktailDetailView(cocktail: cocktail)
+                        CocktailEditorView(mode: .edit(cocktail))
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(cocktail.displayTitle)
-                                .foregroundStyle(AppTheme.primaryText)
+                                .foregroundStyle(cocktail.hasName ? AppTheme.primaryText : AppTheme.tertiaryText)
                             Text(cocktail.createdAt.formatted(date: .abbreviated, time: .omitted))
                                 .font(.caption)
                                 .foregroundStyle(AppTheme.tertiaryText)
                         }
                     }
                 }
+                Button {
+                    drinkFilter.showDrinks(with: entry)
+                } label: {
+                    Label("Show in Drinks", systemImage: "line.3.horizontal.decrease")
+                }
+            } header: {
+                Text(entry.cocktails.count == 1 ? "In 1 drink" : "In \(entry.cocktails.count) drinks")
             }
             .listRowBackground(AppTheme.card)
         }
@@ -153,21 +160,22 @@ private struct IngredientDetailView: View {
         .background(AppTheme.background.ignoresSafeArea())
         .navigationTitle(entry.name)
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { category = entry.category }
-        .onChange(of: category) { _, newValue in
+        .onAppear { kind = entry.kind }
+        .onChange(of: kind) { _, newValue in
             save(newValue)
         }
     }
 
-    private func save(_ newValue: IngredientCategory) {
+    private func save(_ newValue: IngredientKind) {
         let existing = choices.first { $0.key == entry.key }
-        if newValue == IngredientCategory.guess(for: entry.name) {
+        if newValue == IngredientKind.guess(for: entry.name) {
             // Back to the automatic guess; no need to remember a choice.
             if let existing { modelContext.delete(existing) }
         } else if let existing {
-            existing.category = newValue
-        } else if newValue != entry.category {
-            modelContext.insert(IngredientCategoryChoice(key: entry.key, category: newValue))
+            existing.kind = newValue
+        } else if newValue != entry.kind {
+            modelContext.insert(IngredientCategoryChoice(key: entry.key, kind: newValue))
         }
+        try? modelContext.save()
     }
 }

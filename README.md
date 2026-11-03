@@ -16,7 +16,7 @@ Everything stays on your phone. No account, no server, no API key.
 
 **Scan from menu** (free, fully on device)
 - Take or pick a photo of a menu, then swipe over words like a highlighter:
-  **Name** (yellow), **Ingredients** (green), **Price** (pink)
+  **Name** (blue), **Ingredients** (green), **Price** (yellow)
 - Pinch to zoom, two fingers to move, Undo / Clear to fix mistakes
 - Ingredients are split on the menu's own punctuation (`,` `&` `and` `·` `/`), keeping names like `Brown Butter-Washed Rye` together
 - ALL-CAPS menu text becomes Title Case; abbreviations such as XO or VSOP stay as printed

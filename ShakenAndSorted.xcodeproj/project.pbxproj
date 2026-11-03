@@ -13,7 +13,7 @@
 		A10000000000000000000004 /* CocktailListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* CocktailListView.swift */; };
 		A10000000000000000000005 /* CocktailRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* CocktailRowView.swift */; };
 		A10000000000000000000006 /* CocktailEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* CocktailEditorView.swift */; };
-		A10000000000000000000007 /* CocktailDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* CocktailDetailView.swift */; };
+		A10000000000000000000007 /* PlaceAndPhotoViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* PlaceAndPhotoViews.swift */; };
 		A10000000000000000000008 /* PhotoPickerField.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* PhotoPickerField.swift */; };
 		A10000000000000000000009 /* PlaceSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* PlaceSearchView.swift */; };
 		A1000000000000000000000A /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* AppTheme.swift */; };
@@ -22,6 +22,8 @@
 		A1000000000000000000000E /* MenuRecognition.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* MenuRecognition.swift */; };
 		A1000000000000000000000F /* IngredientCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000F /* IngredientCategory.swift */; };
 		A10000000000000000000010 /* IngredientsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* IngredientsView.swift */; };
+		A10000000000000000000011 /* IngredientAmount.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* IngredientAmount.swift */; };
+		A10000000000000000000012 /* DrinkFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* DrinkFilter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -31,7 +33,7 @@
 		A20000000000000000000004 /* CocktailListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CocktailListView.swift; sourceTree = "<group>"; };
 		A20000000000000000000005 /* CocktailRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CocktailRowView.swift; sourceTree = "<group>"; };
 		A20000000000000000000006 /* CocktailEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CocktailEditorView.swift; sourceTree = "<group>"; };
-		A20000000000000000000007 /* CocktailDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CocktailDetailView.swift; sourceTree = "<group>"; };
+		A20000000000000000000007 /* PlaceAndPhotoViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceAndPhotoViews.swift; sourceTree = "<group>"; };
 		A20000000000000000000008 /* PhotoPickerField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoPickerField.swift; sourceTree = "<group>"; };
 		A20000000000000000000009 /* PlaceSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceSearchView.swift; sourceTree = "<group>"; };
 		A2000000000000000000000A /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
@@ -41,6 +43,8 @@
 		A2000000000000000000000E /* MenuRecognition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuRecognition.swift; sourceTree = "<group>"; };
 		A2000000000000000000000F /* IngredientCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IngredientCategory.swift; sourceTree = "<group>"; };
 		A20000000000000000000010 /* IngredientsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IngredientsView.swift; sourceTree = "<group>"; };
+		A20000000000000000000011 /* IngredientAmount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IngredientAmount.swift; sourceTree = "<group>"; };
+		A20000000000000000000012 /* DrinkFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrinkFilter.swift; sourceTree = "<group>"; };
 		A30000000000000000000001 /* ShakenAndSorted.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ShakenAndSorted.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -91,6 +95,8 @@
 			children = (
 				A20000000000000000000003 /* Cocktail.swift */,
 				A2000000000000000000000F /* IngredientCategory.swift */,
+				A20000000000000000000011 /* IngredientAmount.swift */,
+				A20000000000000000000012 /* DrinkFilter.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -101,7 +107,7 @@
 				A20000000000000000000004 /* CocktailListView.swift */,
 				A20000000000000000000005 /* CocktailRowView.swift */,
 				A20000000000000000000006 /* CocktailEditorView.swift */,
-				A20000000000000000000007 /* CocktailDetailView.swift */,
+				A20000000000000000000007 /* PlaceAndPhotoViews.swift */,
 				A20000000000000000000008 /* PhotoPickerField.swift */,
 				A20000000000000000000009 /* PlaceSearchView.swift */,
 				A2000000000000000000000D /* MenuScanView.swift */,
@@ -201,7 +207,7 @@
 				A10000000000000000000004 /* CocktailListView.swift in Sources */,
 				A10000000000000000000005 /* CocktailRowView.swift in Sources */,
 				A10000000000000000000006 /* CocktailEditorView.swift in Sources */,
-				A10000000000000000000007 /* CocktailDetailView.swift in Sources */,
+				A10000000000000000000007 /* PlaceAndPhotoViews.swift in Sources */,
 				A10000000000000000000008 /* PhotoPickerField.swift in Sources */,
 				A10000000000000000000009 /* PlaceSearchView.swift in Sources */,
 				A1000000000000000000000A /* AppTheme.swift in Sources */,
@@ -209,6 +215,8 @@
 				A1000000000000000000000E /* MenuRecognition.swift in Sources */,
 				A1000000000000000000000F /* IngredientCategory.swift in Sources */,
 				A10000000000000000000010 /* IngredientsView.swift in Sources */,
+				A10000000000000000000011 /* IngredientAmount.swift in Sources */,
+				A10000000000000000000012 /* DrinkFilter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

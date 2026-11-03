@@ -2,13 +2,19 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
+    /// In memory only: the app always opens on every drink, newest first.
+    @State private var drinkFilter = DrinkFilter()
+
     var body: some View {
-        TabView {
+        TabView(selection: $drinkFilter.selectedTab) {
             CocktailListView()
                 .tabItem { Label("Drinks", systemImage: "list.bullet.rectangle") }
+                .tag(AppTab.drinks)
             IngredientsView()
                 .tabItem { Label("Ingredients", systemImage: "square.grid.2x2") }
+                .tag(AppTab.ingredients)
         }
+        .environment(drinkFilter)
         .tint(AppTheme.accent)
     }
 }
