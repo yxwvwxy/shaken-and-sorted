@@ -33,7 +33,7 @@ struct CocktailRowView: View {
                 .foregroundStyle(AppTheme.secondaryText)
             }
 
-            Text(cocktail.createdAt.formatted(date: .abbreviated, time: .shortened))
+            Text(cocktail.createdAt.formatted(date: .abbreviated, time: .omitted))
                 .font(.caption2)
                 .foregroundStyle(AppTheme.tertiaryText)
 
@@ -44,6 +44,8 @@ struct CocktailRowView: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 140)
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    // Fill mode overflows the frame; clipping hides that part but it still catches taps.
+                    .allowsHitTesting(false)
             }
         }
         .padding(.vertical, 6)

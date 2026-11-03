@@ -7,6 +7,8 @@ struct MenuRecognitionResult: Equatable {
     var name: String
     var ingredients: [String]
     var price: String = ""
+    /// The menu photo that was scanned, as JPEG.
+    var photoData: Data?
 
     var cleanedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -51,6 +53,8 @@ struct MenuWord: Identifiable {
     /// Whether the printed text has a space (or a line break) before this word.
     /// False inside "Single-Barrel" and between Chinese or Japanese words.
     let spaceBefore: Bool
+    /// Which printed line it is on, in reading order.
+    let line: Int
     /// Normalized to the photo, origin top-left.
     let box: CGRect
 }
@@ -121,7 +125,7 @@ enum MenuTextReader {
         }
 
         var words: [MenuWord] = []
-        for line in lines {
+        for (lineIndex, line) in lines.enumerated() {
             guard let candidate = line.topCandidates(1).first else { continue }
             let text = candidate.string
             for range in tokenRanges(in: text) {
@@ -132,6 +136,7 @@ enum MenuTextReader {
                     id: words.count,
                     text: String(text[range]),
                     spaceBefore: spaceBefore,
+                    line: lineIndex,
                     box: CGRect(x: box.minX, y: 1 - box.maxY, width: box.width, height: box.height)
                 ))
             }
@@ -140,28 +145,36 @@ enum MenuTextReader {
     }
 
     /// Words with the punctuation stuck to them ("Rye," / "“The"), so commas
-    /// survive for splitting ingredients. Uses word segmentation so Chinese and
-    /// Japanese, which have no spaces, still split into words.
+    /// survive for splitting ingredients. Lone marks between spaces ("&", "-") are
+    /// tokens of their own. Word segmentation splits Chinese and Japanese, which
+    /// have no spaces, and hyphenated words ("Single-" "Barrel").
     private static func tokenRanges(in text: String) -> [Range<String.Index>] {
-        var wordRanges: [Range<String.Index>] = []
-        text.enumerateSubstrings(in: text.startIndex..<text.endIndex, options: .byWords) { _, range, _, _ in
-            wordRanges.append(range)
-        }
-
         var tokens: [Range<String.Index>] = []
-        var previousEnd = text.startIndex
-        for (index, range) in wordRanges.enumerated() {
-            var start = range.lowerBound
-            while start > previousEnd, !text[text.index(before: start)].isWhitespace {
-                start = text.index(before: start)
+        var index = text.startIndex
+        while index < text.endIndex {
+            if text[index].isWhitespace {
+                index = text.index(after: index)
+                continue
             }
-            let limit = index + 1 < wordRanges.count ? wordRanges[index + 1].lowerBound : text.endIndex
-            var end = range.upperBound
-            while end < limit, !text[end].isWhitespace {
-                end = text.index(after: end)
+            let chunkStart = index
+            while index < text.endIndex, !text[index].isWhitespace {
+                index = text.index(after: index)
             }
-            tokens.append(start..<end)
-            previousEnd = end
+            let chunk = chunkStart..<index
+
+            var wordStarts: [String.Index] = []
+            text.enumerateSubstrings(in: chunk, options: .byWords) { _, range, _, _ in
+                wordStarts.append(range.lowerBound)
+            }
+            guard wordStarts.count > 1 else {
+                tokens.append(chunk)
+                continue
+            }
+            wordStarts[0] = chunkStart
+            for (i, start) in wordStarts.enumerated() {
+                let end = i + 1 < wordStarts.count ? wordStarts[i + 1] : chunk.upperBound
+                tokens.append(start..<end)
+            }
         }
         return tokens
     }
@@ -169,21 +182,20 @@ enum MenuTextReader {
 
 /// Turns highlighter strokes into a drink: the words each stroke passes over.
 enum MenuHighlightReader {
-    /// Which stroke (by index) picked each word. A word goes to the first stroke that touches it.
+    /// Which stroke (by index) picked each word. A word goes to the first stroke that picks it.
+    /// Only the middle of the pen counts, and it has to run across a good part of the word,
+    /// so grazing the line above or the edge of a neighboring word picks nothing.
     static func assignments(words: [MenuWord], strokes: [HighlightStroke], fit: CGRect) -> [Int: Int] {
         var picked: [Int: Int] = [:]
         for (strokeIndex, stroke) in strokes.enumerated() {
-            let samples = densePoints(stroke.points, step: 2)
-            guard let first = samples.first else { continue }
-            let reach = stroke.width * 0.3
-            let bounds = samples.reduce(CGRect(origin: first, size: .zero)) {
-                $0.union(CGRect(origin: $1, size: .zero))
-            }.insetBy(dx: -reach, dy: -reach)
+            let samples = densePoints(stroke.points, step: 1)
+            guard !samples.isEmpty else { continue }
 
             for word in words where picked[word.id] == nil {
                 let rect = canvasRect(for: word, fit: fit)
-                guard rect.intersects(bounds) else { continue }
-                if samples.contains(where: { distance(from: $0, to: rect) <= reach }) {
+                let inside = samples.filter { rect.contains($0) }.map(\.x)
+                guard let minX = inside.min(), let maxX = inside.max() else { continue }
+                if maxX - minX >= rect.width * 0.4 {
                     picked[word.id] = strokeIndex
                 }
             }
@@ -197,18 +209,10 @@ enum MenuHighlightReader {
         func highlighted(_ mode: HighlightMode) -> [MenuWord] {
             words.filter { word in picked[word.id].map { strokes[$0].mode == mode } ?? false }
         }
-        let name = stripPrice(joined(highlighted(.name)))
+        let name = MenuCasing.fixed(stripPrice(joined(highlighted(.name))))
         let price = joined(highlighted(.price))
 
-        // One group per ingredient stroke, in reading order of where each starts.
-        var groups: [Int: [MenuWord]] = [:]
-        for word in words {
-            guard let strokeIndex = picked[word.id], strokes[strokeIndex].mode == .ingredients else { continue }
-            groups[strokeIndex, default: []].append(word)
-        }
-        let ingredients = groups.values
-            .sorted { ($0.first?.id ?? 0) < ($1.first?.id ?? 0) }
-            .flatMap { splitIngredients(joined($0)) }
+        let ingredients = ingredientItems(highlighted(.ingredients)).map(MenuCasing.fixed)
 
         return MenuRecognitionResult(name: name, ingredients: ingredients, price: price)
     }
@@ -238,22 +242,77 @@ enum MenuHighlightReader {
 
     /// Joins words the way they were printed: spaced, except inside "Single-Barrel" or Chinese text.
     static func joined(_ words: [MenuWord]) -> String {
-        words.reduce(into: "") { text, word in
+        let text = words.reduce(into: "") { text, word in
             if !text.isEmpty, word.spaceBefore { text += " " }
             text += word.text
         }
+        return fixedAmpersands(text)
+    }
+
+    /// Script "&" on menus is often read as a lone "8" ("Butter 8 Bonded"). Between two
+    /// words it can only be "&". Full-width "＆" is made plain too.
+    static func fixedAmpersands(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: #"(?<=\p{L}[.,]?)\s+8\s+(?=\p{L})"#, with: " & ", options: .regularExpression)
+            .replacingOccurrences(of: "＆", with: "&")
+            .replacingOccurrences(of: "﹠", with: "&")
+    }
+
+    /// Ingredients come from the printed punctuation, not from where strokes start and stop.
+    /// Menus differ, so the marks are weighed together for the whole highlighted text:
+    /// - Commas, "&", "and", ";", "/", "·" split items.
+    /// - A spaced dash is part of a name when the list already uses those marks
+    ///   ("brown butter - washed rye, antica & demerara" → "brown butter-washed rye").
+    ///   With no other marks it is the separator ("gin - lime - mint").
+    /// - With no marks at all, one item per printed line.
+    /// Words you skip over always split.
+    static func ingredientItems(_ words: [MenuWord]) -> [String] {
+        // Runs of words that sit next to each other on the menu.
+        var runs: [[MenuWord]] = []
+        for word in words {
+            if let last = runs.last?.last, last.id + 1 == word.id {
+                runs[runs.count - 1].append(word)
+            } else {
+                runs.append([word])
+            }
+        }
+
+        let text = runs.map(joined).joined(separator: " ")
+        if hasListMarks(text) {
+            return runs.flatMap { splitIngredients(joinedDashes(joined($0))) }
+        }
+        if text.range(of: spacedDash, options: .regularExpression) != nil {
+            return runs.flatMap { splitIngredients(joined($0).replacingOccurrences(of: spacedDash, with: ",", options: .regularExpression)) }
+        }
+        return runs
+            .flatMap { run in Dictionary(grouping: run, by: \.line).sorted { $0.key < $1.key }.map(\.value) }
+            .flatMap { splitIngredients(joined($0)) }
+    }
+
+    private static let listSeparators: Set<Character> = [",", "，", "、", "·", "•", "/", "|", ";", "；", "&", "＋", "+"]
+    private static let spacedDash = #"\s+[-–—]\s+"#
+    private static let andWord = #"(?i)\s+and\s+"#
+
+    private static func hasListMarks(_ text: String) -> Bool {
+        text.contains(where: listSeparators.contains)
+            || text.range(of: andWord, options: .regularExpression) != nil
+    }
+
+    /// "brown butter - washed" → "brown butter-washed".
+    private static func joinedDashes(_ text: String) -> String {
+        text.replacingOccurrences(of: #"\s+-\s+"#, with: "-", options: .regularExpression)
     }
 
     /// Splits a highlighted run like "Rye, Yellow Chartreuse & Orange Bitters" into items.
     static func splitIngredients(_ text: String) -> [String] {
-        let separators: Set<Character> = [",", "，", "、", "·", "•", "/", "|", ";", "；", "&"]
-        return text
-            .split(whereSeparator: { separators.contains($0) })
+        text
+            .replacingOccurrences(of: andWord, with: ",", options: .regularExpression)
+            .split(whereSeparator: { listSeparators.contains($0) })
             .map { piece in
                 // Commas inside quoted names leave stray quote marks behind; drop them.
                 var item = stripPrice(String(piece))
                     .filter { !"“”\"".contains($0) }
-                    .trimmingCharacters(in: CharacterSet(charactersIn: "*.").union(.whitespaces))
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "*.-–—").union(.whitespaces))
                 for joiner in ["or ", "and "] where item.lowercased().hasPrefix(joiner) {
                     item = String(item.dropFirst(joiner.count))
                 }
@@ -285,11 +344,45 @@ enum MenuHighlightReader {
         }
         return result
     }
+}
 
-    private static func distance(from point: CGPoint, to rect: CGRect) -> CGFloat {
-        let dx = max(rect.minX - point.x, 0, point.x - rect.maxX)
-        let dy = max(rect.minY - point.y, 0, point.y - rect.maxY)
-        return hypot(dx, dy)
+/// Menus often print in ALL CAPS. Shouting words become Title Case ("ROUGH RIDER" → "Rough Rider");
+/// abbreviations such as "XO", "VSOP" or "NYC" stay as printed. Mixed-case text is left alone.
+enum MenuCasing {
+    private static let abbreviations: Set<String> = [
+        "XO", "VS", "VSOP", "XXO", "IPA", "ABV", "DOC", "DOCG", "AOC", "BBQ", "NYC", "LA", "UK", "USA", "US", "NV", "CBD", "OJ"
+    ]
+    private static let checker = UITextChecker()
+
+    static func fixed(_ text: String) -> String {
+        let pattern = #"[A-Za-z]+(?:['’][A-Za-z]+)*"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
+        var result = text
+        let matches = regex.matches(in: text, range: NSRange(text.startIndex..., in: text))
+        for match in matches.reversed() {
+            guard let range = Range(match.range, in: result) else { continue }
+            let word = String(result[range])
+            guard word.count >= 2, word == word.uppercased() else { continue }
+            if isAbbreviation(word) { continue }
+            result.replaceSubrange(range, with: word.prefix(1) + word.dropFirst().lowercased())
+        }
+        return result
+    }
+
+    /// Known drink abbreviations, anything without a vowel ("MKT"), and short letter
+    /// groups that aren't English words ("NOLA" is kept, "OUR" is not).
+    private static func isAbbreviation(_ word: String) -> Bool {
+        if abbreviations.contains(word) { return true }
+        if !word.contains(where: { "AEIOUY".contains($0) }) { return true }
+        if word.count <= 4 {
+            let lower = word.lowercased()
+            let misspelled = checker.rangeOfMisspelledWord(
+                in: lower, range: NSRange(location: 0, length: (lower as NSString).length),
+                startingAt: 0, wrap: false, language: "en"
+            )
+            return misspelled.location != NSNotFound
+        }
+        return false
     }
 }
 

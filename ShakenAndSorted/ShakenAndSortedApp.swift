@@ -4,7 +4,7 @@ import SwiftData
 @main
 struct ShakenAndSortedApp: App {
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema([Cocktail.self])
+        let schema = Schema([Cocktail.self, IngredientCategoryChoice.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: false)
         do {
             return try ModelContainer(for: schema, configurations: [config])

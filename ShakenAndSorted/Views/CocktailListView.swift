@@ -5,6 +5,7 @@ struct CocktailListView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Cocktail.createdAt, order: .reverse) private var cocktails: [Cocktail]
     @State private var showingAdd = false
+    @State private var showingSettings = false
 
     var body: some View {
         NavigationStack {
@@ -18,6 +19,14 @@ struct CocktailListView: View {
             .background(AppTheme.background.ignoresSafeArea())
             .navigationTitle("Shaken & Sorted")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showingSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel("Settings")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showingAdd = true
@@ -30,6 +39,9 @@ struct CocktailListView: View {
             }
             .sheet(isPresented: $showingAdd) {
                 CocktailEditorView(mode: .add)
+            }
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
             }
         }
         .tint(AppTheme.accent)
@@ -84,6 +96,41 @@ struct CocktailListView: View {
         for index in offsets {
             modelContext.delete(cocktails[index])
         }
+    }
+}
+
+private struct SettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage(MapApp.storageKey) private var defaultApp: MapApp = .ask
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Picker("Open Places In", selection: $defaultApp) {
+                        ForEach(MapApp.allCases) { app in
+                            Text(app.title).tag(app)
+                        }
+                    }
+                    .pickerStyle(.inline)
+                    .labelsHidden()
+                } header: {
+                    Text("Open Places In")
+                } footer: {
+                    Text("Tapping a drink's place opens this map. Long-press the place to pick another one.")
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(AppTheme.background.ignoresSafeArea())
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .tint(AppTheme.accent)
     }
 }
 

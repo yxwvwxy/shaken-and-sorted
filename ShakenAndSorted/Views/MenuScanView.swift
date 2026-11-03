@@ -283,7 +283,9 @@ struct MenuScanView: View {
             errorMessage = MenuRecognitionError.nothingHighlighted.localizedDescription
             return
         }
-        onRecognized(result)
+        var scanned = result
+        scanned.photoData = image?.normalizedUp().jpegData(compressionQuality: 0.7)
+        onRecognized(scanned)
         dismiss()
     }
 }
@@ -374,7 +376,7 @@ struct HighlighterCanvas: UIViewRepresentable {
         private var zoomScale: CGFloat = 1
 
         /// Pen width on screen; divided by zoom so it stays the same size under your finger.
-        private let penWidth: CGFloat = 22
+        private let penWidth: CGFloat = 14
 
         init(strokes: Binding<[HighlightStroke]>) {
             self.strokes = strokes

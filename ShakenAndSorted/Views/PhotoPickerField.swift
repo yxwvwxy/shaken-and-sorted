@@ -15,6 +15,8 @@ struct PhotoPickerField: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 180)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    // Fill mode overflows the frame; clipping hides that part but it still catches taps.
+                    .allowsHitTesting(false)
                     .overlay(alignment: .topTrailing) {
                         Button {
                             self.photoData = nil

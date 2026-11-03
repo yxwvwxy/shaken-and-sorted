@@ -20,6 +20,8 @@
 		A1000000000000000000000B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* Assets.xcassets */; };
 		A1000000000000000000000D /* MenuScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* MenuScanView.swift */; };
 		A1000000000000000000000E /* MenuRecognition.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* MenuRecognition.swift */; };
+		A1000000000000000000000F /* IngredientCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000F /* IngredientCategory.swift */; };
+		A10000000000000000000010 /* IngredientsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* IngredientsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,6 +39,8 @@
 		A2000000000000000000000C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A2000000000000000000000D /* MenuScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuScanView.swift; sourceTree = "<group>"; };
 		A2000000000000000000000E /* MenuRecognition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuRecognition.swift; sourceTree = "<group>"; };
+		A2000000000000000000000F /* IngredientCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IngredientCategory.swift; sourceTree = "<group>"; };
+		A20000000000000000000010 /* IngredientsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IngredientsView.swift; sourceTree = "<group>"; };
 		A30000000000000000000001 /* ShakenAndSorted.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ShakenAndSorted.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -86,6 +90,7 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000003 /* Cocktail.swift */,
+				A2000000000000000000000F /* IngredientCategory.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -100,6 +105,7 @@
 				A20000000000000000000008 /* PhotoPickerField.swift */,
 				A20000000000000000000009 /* PlaceSearchView.swift */,
 				A2000000000000000000000D /* MenuScanView.swift */,
+				A20000000000000000000010 /* IngredientsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -201,6 +207,8 @@
 				A1000000000000000000000A /* AppTheme.swift in Sources */,
 				A1000000000000000000000D /* MenuScanView.swift in Sources */,
 				A1000000000000000000000E /* MenuRecognition.swift in Sources */,
+				A1000000000000000000000F /* IngredientCategory.swift in Sources */,
+				A10000000000000000000010 /* IngredientsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
