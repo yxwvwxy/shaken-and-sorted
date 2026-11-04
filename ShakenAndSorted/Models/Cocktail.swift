@@ -110,8 +110,18 @@ final class Cocktail {
     }
 
     var trimmedPrice: String? {
-        let trimmed = price?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return trimmed.isEmpty ? nil : trimmed
+        Self.normalizedPrice(price ?? "")
+    }
+
+    /// A bare number is taken as US dollars ("19" → "$19", "12.50" → "$12.50");
+    /// anything with its own currency ("¥88", "€12", "15 CAD") is kept as written.
+    static func normalizedPrice(_ text: String) -> String? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if trimmed.range(of: #"^\d+([.,]\d{1,2})?$"#, options: .regularExpression) != nil {
+            return "$" + trimmed
+        }
+        return trimmed
     }
 
     var hasPlace: Bool {

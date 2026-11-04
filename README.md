@@ -7,8 +7,8 @@ Everything stays on your phone. No account, no server, no API key.
 ## Features
 
 **Drinks**
-- Timeline of every drink you've had or made; tap one to edit it right there (changes save as you go)
-- Fields: name, ingredients with amounts, rating, price, date, place, photos
+- Timeline of every drink you've had or made; tap one to edit it right there (changes save as you go, Undo puts it back as it was)
+- Fields: name, ingredients with amounts, rating, price (a bare number means US dollars), date, place, photos
 - Save needs **at least one** of name, ingredient, place, or photo; otherwise the app says so
 - Amounts are written your way (`2 oz`, `¾ oz`, `2 dashes`), with unit buttons above the keyboard and an oz / ml view that never changes what you wrote
 - Type a comma in an ingredient to start the next one

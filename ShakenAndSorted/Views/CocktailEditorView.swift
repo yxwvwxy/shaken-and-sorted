@@ -36,6 +36,9 @@ struct CocktailEditorView: View {
     @State private var showingValidationAlert = false
     @State private var showingDeleteConfirm = false
     @State private var hasLoaded = false
+    /// The page as it was when opened, for Undo.
+    @State private var original: EditorSnapshot?
+    @State private var showingUndoConfirm = false
     @State private var isDeleted = false
     @FocusState private var focus: IngredientField?
 
@@ -142,6 +145,20 @@ struct CocktailEditorView: View {
                     }
                     .accessibilityLabel("Back")
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingUndoConfirm = true
+                    } label: {
+                        Image(systemName: "arrow.uturn.backward")
+                    }
+                    .disabled(original == nil || original == snapshot)
+                    .accessibilityLabel("Undo changes")
+                    .confirmationDialog("Undo your changes?", isPresented: $showingUndoConfirm, titleVisibility: .visible) {
+                        Button("Undo Changes", role: .destructive, action: undoChanges)
+                    } message: {
+                        Text("Everything goes back to how it was when you opened this page.")
+                    }
+                }
             } else {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -227,8 +244,14 @@ struct CocktailEditorView: View {
                 Text("Optional. Tap again to clear.")
             }
 
-            Section("Price") {
+            Section {
                 TextField("$16", text: $price)
+                    .keyboardType(.numbersAndPunctuation)
+                    .onSubmit { price = trimmedPrice ?? "" }
+            } header: {
+                Text("Price")
+            } footer: {
+                Text("Just a number means US dollars. Type another currency, like ¥88, to keep it.")
             }
 
             Section("When") {
@@ -478,7 +501,7 @@ struct CocktailEditorView: View {
         name = result.cleanedName
         ingredients = IngredientRow.rows(result.cleanedIngredients.map { IngredientLine(name: $0, amount: "") })
         if !result.cleanedPrice.isEmpty {
-            price = result.cleanedPrice
+            price = Cocktail.normalizedPrice(result.cleanedPrice) ?? ""
         }
         // The menu photo is added after any photos already there, so a drink photo stays the cover.
         if let scanned = result.photoData, !photos.contains(scanned) {
@@ -498,9 +521,28 @@ struct CocktailEditorView: View {
         placeAddress = cocktail.placeAddress
         latitude = cocktail.latitude
         longitude = cocktail.longitude
-        price = cocktail.price ?? ""
+        price = cocktail.trimmedPrice ?? ""
         date = cocktail.createdAt
         sourceURL = cocktail.sourceURL ?? ""
+        original = snapshot
+    }
+
+    /// Puts every field back as it was when the page opened; saving as you go then
+    /// writes that back to the drink.
+    private func undoChanges() {
+        guard let original else { return }
+        name = original.name
+        ingredients = original.ingredients
+        photos = original.photos
+        placeName = original.placeName
+        placeAddress = original.placeAddress
+        latitude = original.latitude
+        longitude = original.longitude
+        price = original.price
+        date = original.date
+        rating = original.rating
+        sourceURL = original.sourceURL
+        persist()
     }
 
     /// Everything on the page, to notice any edit.
@@ -513,8 +555,7 @@ struct CocktailEditorView: View {
     }
 
     private var trimmedPrice: String? {
-        let trimmed = price.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
+        Cocktail.normalizedPrice(price)
     }
 
     private var ingredientFields: (names: [String], amounts: [String]?) {
