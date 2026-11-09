@@ -25,6 +25,8 @@ final class Cocktail {
     var isRecipe: Bool?
     /// Where a recipe came from, such as an Instagram or Xiaohongshu post.
     var sourceURL: String?
+    /// Anything else worth remembering: how it tasted, the method, who made it.
+    var notes: String?
     /// For a logged drink made from a recipe, that recipe's `id`.
     var recipeID: UUID?
 
@@ -43,7 +45,8 @@ final class Cocktail {
         createdAt: Date = .now,
         isRecipe: Bool = false,
         sourceURL: String? = nil,
-        recipeID: UUID? = nil
+        recipeID: UUID? = nil,
+        notes: String? = nil
     ) {
         self.id = UUID()
         self.name = name
@@ -61,6 +64,7 @@ final class Cocktail {
         self.isRecipe = isRecipe ? true : nil
         self.sourceURL = sourceURL
         self.recipeID = recipeID
+        self.notes = notes
     }
 
     var isRecipeEntry: Bool { isRecipe == true }

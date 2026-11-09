@@ -24,5 +24,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [Cocktail.self, IngredientCategoryChoice.self], inMemory: true)
+        .modelContainer(for: [Cocktail.self, IngredientCategoryChoice.self, IngredientTranslation.self], inMemory: true)
 }

@@ -6,6 +6,7 @@ import SwiftData
 struct IngredientsView: View {
     @Query(filter: Cocktail.loggedDrinks, sort: \Cocktail.createdAt, order: .reverse) private var cocktails: [Cocktail]
     @Query private var choices: [IngredientCategoryChoice]
+    @Query private var translations: [IngredientTranslation]
     @State private var searchText = ""
 
     var body: some View {
@@ -22,6 +23,7 @@ struct IngredientsView: View {
             .navigationDestination(for: IngredientEntry.self) { entry in
                 IngredientDetailView(entry: entry)
             }
+            .translatesToChinese(untranslated)
         }
         .tint(AppTheme.accent)
     }
@@ -30,13 +32,23 @@ struct IngredientsView: View {
         IngredientCatalog(cocktails: cocktails, choices: choices)
     }
 
+    private var chineseNames: [String: String] {
+        Dictionary(translations.map { ($0.key, $0.chinese) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    private var untranslated: [IngredientEntry] {
+        let known = Set(translations.map(\.key))
+        return catalog.entries.filter { !known.contains($0.key) }
+    }
+
     private var list: some View {
-        List {
+        let chinese = chineseNames
+        return List {
             ForEach(sections, id: \.category) { section in
                 Section {
                     ForEach(section.groups, id: \.subcategory) { group in
                         if let subcategory = group.subcategory {
-                            Text(subcategory.title)
+                            Text(subcategory.bilingualTitle)
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(AppTheme.tertiaryText)
                                 .listRowBackground(AppTheme.card)
@@ -44,8 +56,15 @@ struct IngredientsView: View {
                         ForEach(group.entries) { entry in
                             NavigationLink(value: entry) {
                                 HStack {
-                                    Text(entry.name)
-                                        .foregroundStyle(AppTheme.primaryText)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(entry.name)
+                                            .foregroundStyle(AppTheme.primaryText)
+                                        if let name = chinese[entry.key] {
+                                            Text(name)
+                                                .font(.caption)
+                                                .foregroundStyle(AppTheme.secondaryText)
+                                        }
+                                    }
                                     Spacer()
                                     Text("\(entry.cocktails.count)")
                                         .font(.subheadline)
@@ -56,7 +75,7 @@ struct IngredientsView: View {
                         }
                     }
                 } header: {
-                    Text(section.category.title)
+                    Text(section.category.bilingualTitle)
                 }
             }
         }
@@ -84,7 +103,11 @@ struct IngredientsView: View {
 
     private var sections: [(category: IngredientCategory, groups: [SubcategoryGroup])] {
         let query = searchText.trimmingCharacters(in: .whitespaces)
-        let shown = catalog.entries.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
+        let chinese = chineseNames
+        let shown = catalog.entries.filter {
+            query.isEmpty || $0.name.localizedCaseInsensitiveContains(query)
+                || (chinese[$0.key]?.contains(query) ?? false)
+        }
         let byCategory = Dictionary(grouping: shown, by: \.kind.category)
         return IngredientCategory.allCases.compactMap { category in
             guard let items = byCategory[category], !items.isEmpty else { return nil }
@@ -107,7 +130,9 @@ private struct IngredientDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(DrinkFilter.self) private var drinkFilter
     @Query private var choices: [IngredientCategoryChoice]
+    @Query private var translations: [IngredientTranslation]
     @State private var kind = IngredientKind(category: .uncategorized)
+    @State private var chineseName = ""
 
     var body: some View {
         List {
@@ -115,11 +140,11 @@ private struct IngredientDetailView: View {
                 Picker("Category", selection: $kind) {
                     ForEach(IngredientCategory.allCases) { category in
                         if category.subcategories.isEmpty {
-                            Text(category.title).tag(IngredientKind(category: category))
+                            Text(category.bilingualTitle).tag(IngredientKind(category: category))
                         } else {
-                            Section(category.title) {
+                            Section(category.bilingualTitle) {
                                 ForEach(category.subcategories) { subcategory in
-                                    Text(subcategory.title)
+                                    Text(subcategory.bilingualTitle)
                                         .tag(IngredientKind(category: category, subcategory: subcategory))
                                 }
                             }
@@ -129,6 +154,16 @@ private struct IngredientDetailView: View {
                 .pickerStyle(.menu)
             } footer: {
                 Text("Sorted automatically from the name. Pick another category to fix it for every drink with this ingredient.")
+            }
+            .listRowBackground(AppTheme.card)
+
+            Section {
+                TextField("Chinese name", text: $chineseName)
+                    .onSubmit(saveChinese)
+            } header: {
+                Text("中文名")
+            } footer: {
+                Text("Translated on your phone. If it's off, type the right name; yours is kept.")
             }
             .listRowBackground(AppTheme.card)
 
@@ -160,10 +195,30 @@ private struct IngredientDetailView: View {
         .background(AppTheme.background.ignoresSafeArea())
         .navigationTitle(entry.name)
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { kind = entry.kind }
+        .onAppear {
+            kind = entry.kind
+            chineseName = translations.first { $0.key == entry.key }?.chinese ?? ""
+        }
+        .onDisappear(perform: saveChinese)
         .onChange(of: kind) { _, newValue in
             save(newValue)
         }
+    }
+
+    /// Keeps a hand-typed Chinese name; clearing it lets the phone translate again.
+    private func saveChinese() {
+        let typed = chineseName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let existing = translations.first { $0.key == entry.key }
+        if typed.isEmpty {
+            if let existing { modelContext.delete(existing) }
+        } else if let existing {
+            guard existing.chinese != typed else { return }
+            existing.chinese = typed
+            existing.isManual = true
+        } else {
+            modelContext.insert(IngredientTranslation(key: entry.key, chinese: typed, isManual: true))
+        }
+        try? modelContext.save()
     }
 
     private func save(_ newValue: IngredientKind) {

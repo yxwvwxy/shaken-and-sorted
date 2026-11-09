@@ -209,7 +209,7 @@ final class DrinkFilter {
                 return false
             }
             if !query.isEmpty {
-                let texts = [cocktail.name, cocktail.placeName ?? ""] + cocktail.cleanedIngredients
+                let texts = [cocktail.name, cocktail.placeName ?? "", cocktail.notes ?? ""] + cocktail.cleanedIngredients
                 guard texts.contains(where: { $0.localizedCaseInsensitiveContains(query) }) else { return false }
             }
             return true

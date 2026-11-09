@@ -30,6 +30,7 @@ struct CocktailEditorView: View {
     @State private var date = Date.now
     @State private var rating: DrinkRating?
     @State private var sourceURL = ""
+    @State private var notes = ""
     @State private var amountDisplay: AmountDisplay = .asWritten
     @State private var showingPlaceSearch = false
     @State private var showingMenuScan = false
@@ -114,6 +115,12 @@ struct CocktailEditorView: View {
                 sourceSection
             } else {
                 loggedOnlySections
+            }
+
+            Section("Notes") {
+                TextField(isRecipe ? "Method, tips, what to try next time" : "How it tasted, who made it, anything to remember",
+                          text: $notes, axis: .vertical)
+                    .lineLimit(3...)
             }
 
             Section("Photo") {
@@ -524,6 +531,7 @@ struct CocktailEditorView: View {
         price = cocktail.trimmedPrice ?? ""
         date = cocktail.createdAt
         sourceURL = cocktail.sourceURL ?? ""
+        notes = cocktail.notes ?? ""
         original = snapshot
     }
 
@@ -542,6 +550,7 @@ struct CocktailEditorView: View {
         date = original.date
         rating = original.rating
         sourceURL = original.sourceURL
+        notes = original.notes
         persist()
     }
 
@@ -550,8 +559,13 @@ struct CocktailEditorView: View {
         EditorSnapshot(
             name: name, ingredients: ingredients, photos: photos,
             placeName: placeName, placeAddress: placeAddress, latitude: latitude, longitude: longitude,
-            price: price, date: date, rating: rating, sourceURL: sourceURL
+            price: price, date: date, rating: rating, sourceURL: sourceURL, notes: notes
         )
+    }
+
+    private var trimmedNotes: String? {
+        let trimmed = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private var trimmedPrice: String? {
@@ -591,7 +605,8 @@ struct CocktailEditorView: View {
             rating: isRecipe ? nil : rating,
             createdAt: isRecipe ? .now : date,
             isRecipe: isRecipe,
-            sourceURL: isRecipe ? trimmedSourceURL : nil
+            sourceURL: isRecipe ? trimmedSourceURL : nil,
+            notes: trimmedNotes
         ))
         try? modelContext.save()
         dismiss()
@@ -612,6 +627,7 @@ struct CocktailEditorView: View {
         cocktail.latitude = latitude
         cocktail.longitude = longitude
         cocktail.price = trimmedPrice
+        cocktail.notes = trimmedNotes
         if cocktail.isRecipeEntry {
             cocktail.sourceURL = trimmedSourceURL
         } else {
@@ -670,6 +686,7 @@ private struct EditorSnapshot: Equatable {
     var date: Date
     var rating: DrinkRating?
     var sourceURL: String
+    var notes: String
 }
 
 private enum IngredientField: Hashable {

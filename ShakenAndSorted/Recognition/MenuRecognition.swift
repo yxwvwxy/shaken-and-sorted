@@ -212,7 +212,7 @@ enum MenuHighlightReader {
         let name = MenuCasing.fixed(stripPrice(joined(highlighted(.name))))
         let price = joined(highlighted(.price))
 
-        let ingredients = ingredientItems(highlighted(.ingredients)).map(MenuCasing.fixed)
+        let ingredients = ingredientItems(highlighted(.ingredients)).map(MenuCasing.ingredient)
 
         return MenuRecognitionResult(name: name, ingredients: ingredients, price: price)
     }
@@ -368,6 +368,36 @@ enum MenuCasing {
         }
         return result
     }
+
+    /// Every word of an ingredient starts with a capital, the way brands are written
+    /// ("CARPANO ANTICA VERMOUTH", "orange bitters" → "Carpano Antica Vermouth", "Orange Bitters").
+    /// Abbreviations in capitals ("XO"), words with their own mix ("McCoy") and small
+    /// joining words after the first ("Crème de Cassis") are left as they should be.
+    static func ingredient(_ text: String) -> String {
+        let pattern = #"\p{L}+(?:['’]\p{L}+)*"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
+        var result = text
+        let matches = regex.matches(in: text, range: NSRange(text.startIndex..., in: text))
+        for (offset, match) in matches.enumerated().reversed() {
+            guard let range = Range(match.range, in: result) else { continue }
+            let word = String(result[range])
+            let isAllCaps = word == word.uppercased()
+            if word.count >= 2, isAllCaps, isAbbreviation(word) { continue }
+            let hasOwnMix = !isAllCaps && word.dropFirst().contains(where: \.isUppercase)
+            if hasOwnMix { continue }
+            let lower = word.lowercased()
+            if offset > 0, joiningWords.contains(lower) {
+                result.replaceSubrange(range, with: lower)
+            } else {
+                result.replaceSubrange(range, with: lower.prefix(1).uppercased() + lower.dropFirst())
+            }
+        }
+        return result
+    }
+
+    private static let joiningWords: Set<String> = [
+        "of", "and", "or", "the", "a", "an", "with", "in", "on", "de", "du", "des", "la", "le", "di", "del", "da", "y", "en"
+    ]
 
     /// Known drink abbreviations, anything without a vowel ("MKT"), and short letter
     /// groups that aren't English words ("NOLA" is kept, "OUR" is not).
