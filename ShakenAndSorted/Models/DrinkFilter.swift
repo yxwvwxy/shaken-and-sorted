@@ -154,6 +154,7 @@ final class DrinkFilter {
     var sort: DrinkSortOrder = .newest
     /// Drinks opened from the list; cleared to come back to the list itself.
     var drinksPath: [Cocktail] = []
+    var recipesPath: [Cocktail] = []
 
     private var trimmedSearch: String {
         searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -179,6 +180,12 @@ final class DrinkFilter {
         ratings = []
         dateRange = .allTime
         sort = .newest
+    }
+
+    /// Switches to the Recipes tab with this recipe open.
+    func openRecipe(_ recipe: Cocktail) {
+        recipesPath = [recipe]
+        selectedTab = .recipes
     }
 
     /// Switches to the Drinks tab with this drink open.

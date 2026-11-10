@@ -27,8 +27,11 @@ final class Cocktail {
     var sourceURL: String?
     /// Anything else worth remembering: how it tasted, the method, who made it.
     var notes: String?
-    /// For a logged drink made from a recipe, that recipe's `id`.
+    /// Left by older versions, which logged a separate copy for each recipe made;
+    /// those copies are folded back into their recipe at launch.
     var recipeID: UUID?
+    /// A recipe you've made: it then shows in Drinks too, as the same entry.
+    var isMade: Bool?
 
     init(
         name: String = "",
@@ -68,10 +71,14 @@ final class Cocktail {
     }
 
     var isRecipeEntry: Bool { isRecipe == true }
+    var isMadeRecipe: Bool { isRecipe == true && isMade == true }
 
-    /// Logged drinks only, leaving out saved recipes. Drinks from before recipes existed
-    /// have no flag at all, and the store treats "no value != true" as false, so check nil too.
-    static let loggedDrinks = #Predicate<Cocktail> { $0.isRecipe == nil || $0.isRecipe == false }
+    /// What Drinks shows: drinks you logged, and recipes you've made. Drinks from before
+    /// recipes existed have no flag at all, and the store treats "no value != true" as
+    /// false, so nil is checked too.
+    static let loggedDrinks = #Predicate<Cocktail> { cocktail in
+        !(cocktail.isRecipe ?? false) || (cocktail.isMade ?? false)
+    }
     static let recipes = #Predicate<Cocktail> { $0.isRecipe == true }
 
     var trimmedName: String {

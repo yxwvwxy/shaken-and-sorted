@@ -8,7 +8,7 @@ Everything stays on your phone. No account, no server, no API key.
 
 **Drinks**
 - Timeline of every drink you've had or made; tap one to edit it right there (changes save as you go, Undo puts it back as it was)
-- Fields: name, ingredients with amounts, rating, price (a bare number means US dollars), date, place, photos
+- Fields: name, ingredients with amounts, rating, notes, photos, date, place, price (a bare number means US dollars)
 - Save needs **at least one** of name, ingredient, place, or photo; otherwise the app says so
 - Amounts are written your way (`2 oz`, `¾ oz`, `2 dashes`), with unit buttons above the keyboard and an oz / ml view that never changes what you wrote
 - Type a comma in an ingredient to start the next one
@@ -17,9 +17,10 @@ Everything stays on your phone. No account, no server, no API key.
 - Search drinks, ingredients, categories (Whiskey, or just Rye) and places, with suggestions as you type
 - Filter & Sort: newest or oldest first, or by rating; filter by rating and date range
 
-**Recipes tab**
-- Drinks you want to make, with amounts and a link to the Instagram or Xiaohongshu post
-- **Mark as Made** logs a copy in Drinks, dated today, to rate and photograph; the recipe shows how often you've made it
+**Recipes tab** (left of Drinks, which the app opens on)
+- Drinks you want to make, typed in by hand, with amounts, notes and a source link (Instagram, Xiaohongshu or any post)
+- A recipe and a drink share the same page and sections; recipes have a source link, logged drinks a price
+- **Mark as Made** puts the recipe in Drinks too, as the same entry, dated today and ready to rate; **Mark as To Make** takes it back out
 
 **Scan from menu** (free, fully on device)
 - Take or pick a photo of a menu, then swipe over words like a highlighter:
@@ -37,6 +38,8 @@ Everything stays on your phone. No account, no server, no API key.
 - Every ingredient you've logged, grouped into categories, with the main spirits split further
   (Bourbon, Rye, Scotch, Irish, Japanese; White, Aged, Dark Rum, Agricole; Tequila, Mezcal; Cognac, Armagnac, Pisco, Calvados)
 - Sorted automatically from the name; tap an ingredient to fix its category, see its drinks, or show them in Drinks
+- Each ingredient shows its Chinese name, from a built-in cocktail glossary (falling back to Apple's on-device translation); tap it on a drink to correct it
+- **Your Palate** unlocks after 5 rated drinks: a flavor radar, favorite spirits, ingredients you love and ones to skip, and recipes to try next
 
 ## Install it on your own iPhone
 

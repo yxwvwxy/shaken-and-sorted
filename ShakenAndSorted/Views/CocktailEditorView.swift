@@ -15,7 +15,6 @@ struct CocktailEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @Environment(DrinkFilter.self) private var drinkFilter
-    @Query(filter: Cocktail.loggedDrinks, sort: \Cocktail.createdAt, order: .reverse) private var loggedDrinks: [Cocktail]
 
     let mode: CocktailEditorMode
 
@@ -30,6 +29,9 @@ struct CocktailEditorView: View {
     @State private var date = Date.now
     @State private var rating: DrinkRating?
     @State private var sourceURL = ""
+    @Query private var translations: [IngredientTranslation]
+    @State private var editingChinese: ChineseEdit?
+    @State private var chineseDraft = ""
     @State private var notes = ""
     @State private var amountDisplay: AmountDisplay = .asWritten
     @State private var showingPlaceSearch = false
@@ -44,11 +46,7 @@ struct CocktailEditorView: View {
     @FocusState private var focus: IngredientField?
 
     private var canSave: Bool {
-        // For a recipe the source link stands in for the place.
-        Cocktail.canSave(
-            name: name, ingredients: ingredients.map(\.text), photoData: photos.first,
-            placeName: isRecipe ? trimmedSourceURL : placeName
-        )
+        Cocktail.canSave(name: name, ingredients: ingredients.map(\.text), photoData: photos.first, placeName: placeName)
     }
 
     private var isEditing: Bool {
@@ -69,10 +67,9 @@ struct CocktailEditorView: View {
         return trimmed.isEmpty ? nil : trimmed
     }
 
-    /// Drinks logged from this recipe, newest first.
-    private var madeDrinks: [Cocktail] {
-        guard case .edit(let cocktail) = mode, cocktail.isRecipeEntry else { return [] }
-        return loggedDrinks.filter { $0.recipeID == cocktail.id }
+    private var isMade: Bool {
+        if case .edit(let cocktail) = mode { return cocktail.isMadeRecipe }
+        return false
     }
 
     var body: some View {
@@ -96,12 +93,10 @@ struct CocktailEditorView: View {
                 Button {
                     showingMenuScan = true
                 } label: {
-                    Label(isRecipe ? "Scan a recipe" : "Scan from menu", systemImage: "menucard")
+                    Label("Scan a menu or recipe", systemImage: "menucard")
                 }
             } footer: {
-                Text(isRecipe
-                     ? "Photo a recipe card or a screenshot, highlight the name and ingredients."
-                     : "Photo a menu, highlight one drink, then edit anything before saving.")
+                Text("Photo a menu, recipe card or screenshot, highlight one drink, then edit anything before saving.")
             }
 
             Section("Name") {
@@ -109,22 +104,29 @@ struct CocktailEditorView: View {
                     .textInputAutocapitalization(.words)
             }
 
+            // Drinks and recipes share every section, in the same order.
             ingredientsSection
 
-            if isRecipe {
-                sourceSection
-            } else {
-                loggedOnlySections
-            }
+            ratingSection
 
             Section("Notes") {
-                TextField(isRecipe ? "Method, tips, what to try next time" : "How it tasted, who made it, anything to remember",
-                          text: $notes, axis: .vertical)
+                TextField("How it tasted, the method, anything to remember", text: $notes, axis: .vertical)
                     .lineLimit(3...)
             }
 
             Section("Photo") {
                 PhotoPickerField(photos: $photos)
+            }
+
+            whenSection
+
+            whereSection
+
+            // A bought drink has a price; a recipe (made or not) has the post it came from.
+            if isRecipe {
+                sourceSection
+            } else {
+                priceSection
             }
 
             if isEditing {
@@ -192,9 +194,17 @@ struct CocktailEditorView: View {
                 Button("OK", role: .cancel) {}
             }
         } message: {
-            Text(isRecipe
-                 ? "Add at least one of these: a name, an ingredient, a link, or a photo."
-                 : "Add at least one of these: a name, an ingredient, a place, or a photo.")
+            Text("Add at least one of these: a name, an ingredient, a place, or a photo.")
+        }
+        .alert(
+            editingChinese.map { "Chinese Name · \($0.name)" } ?? "Chinese Name",
+            isPresented: Binding(get: { editingChinese != nil }, set: { if !$0 { editingChinese = nil } })
+        ) {
+            TextField("Chinese name", text: $chineseDraft)
+            Button("Cancel", role: .cancel) {}
+            Button("Save") { saveChinese() }
+        } message: {
+            Text("Changes this ingredient in every drink. Leave it empty to translate again.")
         }
         .sheet(isPresented: $showingPlaceSearch) {
             PlaceSearchView(
@@ -222,9 +232,8 @@ struct CocktailEditorView: View {
         }
     }
 
-    @ViewBuilder
-    private var loggedOnlySections: some View {
-            Section {
+    private var ratingSection: some View {
+        Section {
                 HStack(spacing: 8) {
                     ForEach(DrinkRating.allCases) { option in
                         Button {
@@ -250,7 +259,9 @@ struct CocktailEditorView: View {
             } footer: {
                 Text("Optional. Tap again to clear.")
             }
+    }
 
+    private var priceSection: some View {
             Section {
                 TextField("$16", text: $price)
                     .keyboardType(.numbersAndPunctuation)
@@ -260,12 +271,12 @@ struct CocktailEditorView: View {
             } footer: {
                 Text("Just a number means US dollars. Type another currency, like ¥88, to keep it.")
             }
+    }
 
+    private var whenSection: some View {
             Section("When") {
                 DatePicker("Date", selection: $date, in: ...Date.now.addingTimeInterval(24 * 60 * 60), displayedComponents: .date)
             }
-
-            whereSection
     }
 
     private var deleteSection: some View {
@@ -288,33 +299,26 @@ struct CocktailEditorView: View {
         }
     }
 
+    /// A recipe is either to make or made. Made puts this same entry in Drinks too,
+    /// dated the day you made it; To Make takes it out of Drinks again.
     private var markAsMadeSection: some View {
         Section {
-            Button(action: markAsMade) {
-                Label("Mark as Made", systemImage: "checkmark.circle")
-                    .font(.headline)
-            }
-            ForEach(madeDrinks) { drink in
-                Button {
-                    drinkFilter.open(drink)
-                } label: {
-                    HStack {
-                        Text(drink.createdAt.formatted(date: .abbreviated, time: .omitted))
-                            .foregroundStyle(AppTheme.primaryText)
-                        Spacer()
-                        if let rating = drink.drinkRating {
-                            RatingBadge(rating: rating)
-                        }
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(AppTheme.tertiaryText)
-                    }
+            if isMade {
+                Label("Made · \(date.formatted(date: .abbreviated, time: .omitted))", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(AppTheme.primaryText)
+                Button(action: markAsToMake) {
+                    Label("Mark as To Make", systemImage: "arrow.uturn.backward.circle")
+                }
+            } else {
+                Button(action: markAsMade) {
+                    Label("Mark as Made", systemImage: "circle")
+                        .font(.headline)
                 }
             }
         } header: {
-            Text(madeDrinks.isEmpty ? "Not made yet" : (madeDrinks.count == 1 ? "Made once" : "Made \(madeDrinks.count) times"))
+            Text(isMade ? "Made" : "To make")
         } footer: {
-            Text("Mark as Made logs a copy in Drinks, dated today, to rate and photograph. The recipe stays here.")
+            Text(isMade ? "Also in Drinks. Rate it below." : "Shows it in Drinks too, dated today.")
         }
     }
 
@@ -353,9 +357,25 @@ struct CocktailEditorView: View {
                         }
                     }
                     .frame(width: 76, alignment: .leading)
-                    TextField("Ingredient", text: $row.text, axis: .vertical)
-                        .textInputAutocapitalization(.never)
-                        .focused($focus, equals: .name(row.id))
+                    VStack(alignment: .leading, spacing: 2) {
+                        TextField("Ingredient", text: $row.text, axis: .vertical)
+                            .textInputAutocapitalization(.never)
+                            .focused($focus, equals: .name(row.id))
+                        let key = IngredientKey.normalized(row.text)
+                        if !key.isEmpty {
+                            // Tap to fix the Chinese name; it changes for every drink with this ingredient.
+                            Button {
+                                editingChinese = ChineseEdit(key: key, name: row.text.trimmingCharacters(in: .whitespaces))
+                                chineseDraft = chineseName(for: row.text) ?? ""
+                            } label: {
+                                let chinese = chineseName(for: row.text)
+                                Text(chinese ?? "+ Chinese name")
+                                    .font(.caption)
+                                    .foregroundStyle(chinese == nil ? AppTheme.tertiaryText : AppTheme.secondaryText)
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                    }
                     if ingredients.count > 1 {
                         Button(role: .destructive) {
                             ingredients.removeAll { $0.id == row.id }
@@ -563,6 +583,32 @@ struct CocktailEditorView: View {
         )
     }
 
+    /// Keeps a hand-typed Chinese name; an empty one lets the phone translate again.
+    private func saveChinese() {
+        guard let edit = editingChinese else { return }
+        let typed = chineseDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let existing = translations.first { $0.key == edit.key }
+        if typed.isEmpty {
+            if let existing { modelContext.delete(existing) }
+        } else if let existing {
+            existing.chinese = typed
+            existing.isManual = true
+        } else {
+            modelContext.insert(IngredientTranslation(key: edit.key, chinese: typed, isManual: true))
+        }
+        try? modelContext.save()
+        editingChinese = nil
+    }
+
+    /// The saved Chinese name, or the glossary's for an ingredient not saved yet.
+    private func chineseName(for ingredient: String) -> String? {
+        chineseNames[IngredientKey.normalized(ingredient)] ?? CocktailGlossary.chinese(for: ingredient)
+    }
+
+    private var chineseNames: [String: String] {
+        Dictionary(translations.map { ($0.key, $0.chinese) }, uniquingKeysWith: { first, _ in first })
+    }
+
     private var trimmedNotes: String? {
         let trimmed = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
@@ -602,10 +648,10 @@ struct CocktailEditorView: View {
             longitude: longitude,
             price: trimmedPrice,
             ingredientAmounts: fields.amounts,
-            rating: isRecipe ? nil : rating,
-            createdAt: isRecipe ? .now : date,
+            rating: rating,
+            createdAt: date,
             isRecipe: isRecipe,
-            sourceURL: isRecipe ? trimmedSourceURL : nil,
+            sourceURL: trimmedSourceURL,
             notes: trimmedNotes
         ))
         try? modelContext.save()
@@ -628,30 +674,24 @@ struct CocktailEditorView: View {
         cocktail.longitude = longitude
         cocktail.price = trimmedPrice
         cocktail.notes = trimmedNotes
-        if cocktail.isRecipeEntry {
-            cocktail.sourceURL = trimmedSourceURL
-        } else {
-            cocktail.createdAt = date
-        }
+        cocktail.sourceURL = trimmedSourceURL
+        cocktail.createdAt = date
         // Write now; SwiftData's own autosave can be too late if the app is closed right after.
         try? modelContext.save()
     }
 
-    /// Logs a copy of this recipe as a drink made today and opens it in Drinks.
     private func markAsMade() {
         guard case .edit(let recipe) = mode else { return }
+        date = .now
         persist()
-        let fields = ingredientFields
-        let drink = Cocktail(
-            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-            ingredients: fields.names,
-            ingredientAmounts: fields.amounts,
-            createdAt: .now,
-            recipeID: recipe.id
-        )
-        modelContext.insert(drink)
+        recipe.isMade = true
         try? modelContext.save()
-        drinkFilter.open(drink)
+    }
+
+    private func markAsToMake() {
+        guard case .edit(let recipe) = mode else { return }
+        recipe.isMade = nil
+        try? modelContext.save()
     }
 
     private func deleteDrink() {
@@ -687,6 +727,11 @@ private struct EditorSnapshot: Equatable {
     var rating: DrinkRating?
     var sourceURL: String
     var notes: String
+}
+
+private struct ChineseEdit {
+    let key: String
+    let name: String
 }
 
 private enum IngredientField: Hashable {

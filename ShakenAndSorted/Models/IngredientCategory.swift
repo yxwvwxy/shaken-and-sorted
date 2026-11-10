@@ -45,30 +45,7 @@ enum IngredientCategory: String, CaseIterable, Identifiable {
         }
     }
 
-    var chineseTitle: String {
-        switch self {
-        case .whiskey: return "威士忌"
-        case .gin: return "金酒"
-        case .vodka: return "伏特加"
-        case .rum: return "朗姆酒"
-        case .agave: return "龙舌兰与梅斯卡尔"
-        case .brandy: return "白兰地"
-        case .otherSpirits: return "其他烈酒"
-        case .liqueurs: return "利口酒"
-        case .aperitifs: return "味美思与开胃酒"
-        case .bitters: return "苦精"
-        case .citrus: return "柑橘与酸"
-        case .sweeteners: return "糖浆与甜味剂"
-        case .juicesAndFresh: return "果汁与新鲜食材"
-        case .mixers: return "气泡与调和饮料"
-        case .texture: return "乳制品与口感"
-        case .garnishes: return "装饰"
-        case .uncategorized: return "未分类"
-        }
-    }
 
-    /// "Whiskey 威士忌"
-    var bilingualTitle: String { "\(title) \(chineseTitle)" }
 
     /// Best guess from the words in the name. Checked in order, so "Orange Bitters" is
     /// bitters, "Brown Butter-Washed Rye" is whiskey and "Lime Juice" is citrus.
@@ -170,31 +147,7 @@ enum IngredientSubcategory: String, CaseIterable, Identifiable {
         }
     }
 
-    var chineseTitle: String {
-        switch self {
-        case .bourbon: return "波本"
-        case .rye: return "黑麦威士忌"
-        case .scotch: return "苏格兰威士忌"
-        case .irish: return "爱尔兰威士忌"
-        case .japanese: return "日本威士忌"
-        case .otherWhiskey: return "其他威士忌"
-        case .whiteRum: return "白朗姆"
-        case .agedRum: return "陈年朗姆"
-        case .darkRum: return "黑朗姆"
-        case .agricole: return "农业朗姆"
-        case .otherRum: return "其他朗姆"
-        case .tequila: return "龙舌兰"
-        case .mezcal: return "梅斯卡尔"
-        case .otherAgave: return "其他龙舌兰类"
-        case .cognac: return "干邑"
-        case .armagnac: return "雅文邑"
-        case .pisco: return "皮斯科"
-        case .calvados: return "卡尔瓦多斯"
-        case .otherBrandy: return "其他白兰地"
-        }
-    }
 
-    var bilingualTitle: String { "\(title) \(chineseTitle)" }
 
     static func guess(for name: String, in category: IngredientCategory) -> IngredientSubcategory? {
         let fallback: IngredientSubcategory
@@ -247,7 +200,6 @@ struct IngredientKind: Hashable {
     var subcategory: IngredientSubcategory?
 
     var title: String { subcategory?.title ?? category.title }
-    var chineseTitle: String { subcategory?.chineseTitle ?? category.chineseTitle }
 
     static func guess(for name: String) -> IngredientKind {
         let category = IngredientCategory.guess(for: name)

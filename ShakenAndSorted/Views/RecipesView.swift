@@ -5,12 +5,13 @@ import SwiftData
 struct RecipesView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(filter: Cocktail.recipes, sort: \Cocktail.createdAt, order: .reverse) private var recipes: [Cocktail]
-    @Query(filter: Cocktail.loggedDrinks, sort: \Cocktail.createdAt, order: .reverse) private var drinks: [Cocktail]
+    @Environment(DrinkFilter.self) private var drinkFilter
     @State private var showingAdd = false
     @State private var show: RecipeFilter = .all
 
     var body: some View {
-        NavigationStack {
+        @Bindable var drinkFilter = drinkFilter
+        NavigationStack(path: $drinkFilter.recipesPath) {
             Group {
                 if recipes.isEmpty {
                     emptyState
@@ -41,18 +42,12 @@ struct RecipesView: View {
         .tint(AppTheme.accent)
     }
 
-    /// Logged drinks per recipe, newest first.
-    private var madeByRecipe: [UUID: [Cocktail]] {
-        Dictionary(grouping: drinks.filter { $0.recipeID != nil }, by: { $0.recipeID! })
-    }
-
     private var list: some View {
-        let made = madeByRecipe
         let shown = recipes.filter { recipe in
             switch show {
             case .all: return true
-            case .toMake: return made[recipe.id] == nil
-            case .made: return made[recipe.id] != nil
+            case .toMake: return !recipe.isMadeRecipe
+            case .made: return recipe.isMadeRecipe
             }
         }
         return List {
@@ -67,7 +62,7 @@ struct RecipesView: View {
 
             ForEach(shown) { recipe in
                 NavigationLink(value: recipe) {
-                    RecipeRow(recipe: recipe, made: made[recipe.id] ?? [])
+                    RecipeRow(recipe: recipe)
                 }
                 .listRowBackground(AppTheme.card)
             }
@@ -133,7 +128,6 @@ private enum RecipeFilter: CaseIterable, Identifiable {
 
 private struct RecipeRow: View {
     let recipe: Cocktail
-    let made: [Cocktail]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -169,9 +163,8 @@ private struct RecipeRow: View {
 
     @ViewBuilder
     private var madeBadge: some View {
-        if let last = made.first {
-            Text(made.count == 1 ? "Made · \(last.createdAt.formatted(.dateTime.month(.abbreviated).day()))"
-                 : "Made \(made.count)× · \(last.createdAt.formatted(.dateTime.month(.abbreviated).day()))")
+        if recipe.isMadeRecipe {
+            Text("Made · \(recipe.createdAt.formatted(.dateTime.month(.abbreviated).day()))")
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(AppTheme.primaryText)
                 .padding(.horizontal, 8)

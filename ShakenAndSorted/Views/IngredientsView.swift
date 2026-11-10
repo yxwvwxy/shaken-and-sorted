@@ -23,7 +23,6 @@ struct IngredientsView: View {
             .navigationDestination(for: IngredientEntry.self) { entry in
                 IngredientDetailView(entry: entry)
             }
-            .translatesToChinese(untranslated)
         }
         .tint(AppTheme.accent)
     }
@@ -36,19 +35,23 @@ struct IngredientsView: View {
         Dictionary(translations.map { ($0.key, $0.chinese) }, uniquingKeysWith: { first, _ in first })
     }
 
-    private var untranslated: [IngredientEntry] {
-        let known = Set(translations.map(\.key))
-        return catalog.entries.filter { !known.contains($0.key) }
+    private var palate: PalateProfile {
+        PalateProfile(drinks: cocktails, recipes: [], catalog: catalog)
     }
 
     private var list: some View {
         let chinese = chineseNames
         return List {
+            Section {
+                PalateCard(profile: palate)
+            }
+            .listRowBackground(AppTheme.card)
+
             ForEach(sections, id: \.category) { section in
                 Section {
                     ForEach(section.groups, id: \.subcategory) { group in
                         if let subcategory = group.subcategory {
-                            Text(subcategory.bilingualTitle)
+                            Text(subcategory.title)
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(AppTheme.tertiaryText)
                                 .listRowBackground(AppTheme.card)
@@ -75,7 +78,7 @@ struct IngredientsView: View {
                         }
                     }
                 } header: {
-                    Text(section.category.bilingualTitle)
+                    Text(section.category.title)
                 }
             }
         }
@@ -140,11 +143,11 @@ private struct IngredientDetailView: View {
                 Picker("Category", selection: $kind) {
                     ForEach(IngredientCategory.allCases) { category in
                         if category.subcategories.isEmpty {
-                            Text(category.bilingualTitle).tag(IngredientKind(category: category))
+                            Text(category.title).tag(IngredientKind(category: category))
                         } else {
-                            Section(category.bilingualTitle) {
+                            Section(category.title) {
                                 ForEach(category.subcategories) { subcategory in
-                                    Text(subcategory.bilingualTitle)
+                                    Text(subcategory.title)
                                         .tag(IngredientKind(category: category, subcategory: subcategory))
                                 }
                             }
@@ -161,7 +164,7 @@ private struct IngredientDetailView: View {
                 TextField("Chinese name", text: $chineseName)
                     .onSubmit(saveChinese)
             } header: {
-                Text("中文名")
+                Text("Chinese Name")
             } footer: {
                 Text("Translated on your phone. If it's off, type the right name; yours is kept.")
             }
