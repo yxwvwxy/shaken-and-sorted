@@ -4,6 +4,18 @@ iPhone app to log the cocktails you drink and make, save recipes you want to try
 
 Everything stays on your phone. No account, no server, no API key.
 
+## Screens
+
+![Drinks](docs/images/01-drinks.png)
+![A drink](docs/images/02-drink-page.png)
+![Search and filter](docs/images/03-search-filter.png)
+![Menu scan](docs/images/04-menu-scan.png)
+![Places](docs/images/05-places.png)
+![Recipes](docs/images/06-recipes.png)
+![Ingredients and palate](docs/images/07-ingredients-palate.png)
+
+All screens on one page: [docs/showcase/index.html](docs/showcase/index.html) (open it in a browser after downloading the repo).
+
 ## Features
 
 **Drinks**

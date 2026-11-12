@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shaken &amp; Sorted Screens</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: a bar-menu style index of screens, grouped by tab, phones in rows that wrap */
+:root{
+  --bg:#f6f6f4; --surface:#ffffff; --ink:#1f1f1f; --muted:#6b6b68; --rule:#dedcd6; --accent:#2b2b2b;
+  --love:#d9ead3; --notbad:#cfe2f3; --meh:#fff2cc; --nuh:#f4cccc;
+  --display:"Fraunces", Georgia, serif; --body:"Inter", -apple-system, system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#161615; --surface:#20201f; --ink:#ecebe7; --muted:#a3a29d; --rule:#34332f; --accent:#ecebe7; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#161615; --surface:#20201f; --ink:#ecebe7; --muted:#a3a29d; --rule:#34332f; --accent:#ecebe7; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55}
+.wrap{max-width:1180px;margin:0 auto;padding-block:48px 72px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{display:grid;gap:14px;margin-bottom:40px}
+.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--display);font-weight:650;font-size:clamp(36px,6vw,64px);line-height:1.02;margin:0;text-wrap:balance}
+.lede{max-width:62ch;color:var(--muted);margin:0}
+.badges{display:flex;flex-wrap:wrap;gap:8px}
+.badge{font-size:12px;font-weight:600;padding:3px 9px;border-radius:6px;color:#1f1f1f}
+nav{display:flex;flex-wrap:wrap;gap:8px 18px;padding-block:14px;border-block:1px solid var(--rule);margin-bottom:48px;font-size:14px}
+nav a{color:var(--ink);text-decoration:none;font-weight:500}
+nav a:hover,nav a:focus-visible{text-decoration:underline;outline:none}
+section{margin-bottom:64px;scroll-margin-top:16px}
+.head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 24px;border-bottom:1px solid var(--rule);padding-bottom:10px;margin-bottom:24px}
+h2{font-family:var(--display);font-weight:500;font-size:30px;margin:0}
+.head p{margin:0;color:var(--muted);max-width:60ch}
+.row{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:28px 22px}
+figure{margin:0;display:grid;gap:10px;min-width:0}
+.phone{background:var(--surface);border:1px solid var(--rule);border-radius:30px;padding:6px;box-shadow:0 1px 0 var(--rule)}
+.phone img{display:block;width:100%;height:auto;border-radius:24px}
+figcaption{font-size:13.5px;color:var(--muted)}
+figcaption b{display:block;color:var(--ink);font-weight:600;font-size:14px}
+footer{color:var(--muted);font-size:13px;border-top:1px solid var(--rule);padding-top:16px}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">iPhone app · every screen as of Nov 9, 2026</div>
+  <h1>Shaken &amp; Sorted</h1>
+  <p class="lede">Log the cocktails you drink and make, keep the recipes you want to try, and see every ingredient you've had, sorted by kind. Everything runs on the phone, with no account and no server.</p>
+  <div class="badges" aria-label="Rating scale">
+    <span class="badge" style="background:var(--nuh)">Nuh uh</span>
+    <span class="badge" style="background:var(--meh)">Meh</span>
+    <span class="badge" style="background:var(--notbad)">Not bad</span>
+    <span class="badge" style="background:var(--love)">Love it</span>
+  </div>
+</header>
+
+<nav aria-label="Sections">
+  <a href="#drinks">Drinks</a><a href="#drink">A drink</a><a href="#find">Search &amp; filter</a>
+  <a href="#scan">Menu scan</a><a href="#places">Places</a><a href="#recipes">Recipes</a><a href="#ingredients">Ingredients &amp; palate</a>
+</nav>
+
+<section id="drinks">
+  <div class="head"><h2>Drinks</h2><p>The tab the app opens on: every drink you've had or made, newest first, with its rating on the name line.</p></div>
+  <div class="row">
+    <figure><div class="phone"><img src="01-drinks.jpg" alt="Drinks list" loading="lazy"></div><figcaption><b>Drinks list</b>Bulleted ingredients, date, place and cover photo.</figcaption></figure>
+    <figure><div class="phone"><img src="08-new-drink.jpg" alt="New drink sheet" loading="lazy"></div><figcaption><b>New drink</b>Save needs a name, ingredient, place or photo.</figcaption></figure>
+    <figure><div class="phone"><img src="07-settings.jpg" alt="Settings" loading="lazy"></div><figcaption><b>Settings</b>Pick which map app opens a drink's place.</figcaption></figure>
+  </div>
+</section>
+
+<section id="drink">
+  <div class="head"><h2>A drink</h2><p>Tap a drink and edit it in place. Changes save as you go, and Undo puts the page back as it was.</p></div>
+  <div class="row">
+    <figure><div class="phone"><img src="02-drink-top.jpg" alt="Drink page top" loading="lazy"></div><figcaption><b>Name and ingredients</b>Amounts on the left, Chinese name under each ingredient.</figcaption></figure>
+    <figure><div class="phone"><img src="03-drink-middle.jpg" alt="Drink rating and notes" loading="lazy"></div><figcaption><b>Rating and notes</b>Rating sits right under the ingredients.</figcaption></figure>
+    <figure><div class="phone"><img src="04-drink-bottom.jpg" alt="Drink page bottom" loading="lazy"></div><figcaption><b>When, where, price</b>A bare number means US dollars. Delete asks first.</figcaption></figure>
+  </div>
+</section>
+
+<section id="find">
+  <div class="head"><h2>Search &amp; filter</h2><p>Search by category, subcategory, ingredient, drink or place. Nothing is remembered after the app closes.</p></div>
+  <div class="row">
+    <figure><div class="phone"><img src="05-search.jpg" alt="Search suggestions" loading="lazy"></div><figcaption><b>Suggestions</b>Typing "bour" offers Bourbon, the ingredient and the drink.</figcaption></figure>
+    <figure><div class="phone"><img src="06-filter.jpg" alt="Filter and sort" loading="lazy"></div><figcaption><b>Filter &amp; Sort</b>Newest, oldest or by rating; filter by rating and date.</figcaption></figure>
+  </div>
+</section>
+
+<section id="scan">
+  <div class="head"><h2>Menu scan</h2><p>Free and on the phone: swipe over words like a highlighter, then fill in the drink.</p></div>
+  <div class="row">
+    <figure><div class="phone"><img src="11-scan.jpg" alt="Highlighting a menu" loading="lazy"></div><figcaption><b>Highlight</b>Name in blue, ingredients in green, price in yellow.</figcaption></figure>
+    <figure><div class="phone"><img src="12-scan-filled.jpg" alt="Filled in drink" loading="lazy"></div><figcaption><b>Filled in</b>Split on the menu's own commas and "&amp;", with Chinese names.</figcaption></figure>
+  </div>
+</section>
+
+<section id="places">
+  <div class="head"><h2>Places</h2><p>Bars nearby first; a few letters are enough, best match then nearest.</p></div>
+  <div class="row">
+    <figure><div class="phone"><img src="09-nearby.jpg" alt="Nearby places" loading="lazy"></div><figcaption><b>Nearby</b>Listed before you type, with location allowed.</figcaption></figure>
+    <figure><div class="phone"><img src="10-place-search.jpg" alt="Place search for lomba" loading="lazy"></div><figcaption><b>Partial search</b>"lomba" finds Catherine Lombardi, 601.9 ft away.</figcaption></figure>
+  </div>
+</section>
+
+<section id="recipes">
+  <div class="head"><h2>Recipes</h2><p>Drinks to make, typed in with a source link. Mark as Made shows the same entry in Drinks.</p></div>
+  <div class="row">
+    <figure><div class="phone"><img src="13-recipes.jpg" alt="Recipes list" loading="lazy"></div><figcaption><b>Recipes list</b>All, To Make or Made.</figcaption></figure>
+    <figure><div class="phone"><img src="14-recipe.jpg" alt="A recipe" loading="lazy"></div><figcaption><b>A recipe</b>Mark as To Make takes a made recipe back out of Drinks.</figcaption></figure>
+  </div>
+</section>
+
+<section id="ingredients">
+  <div class="head"><h2>Ingredients &amp; palate</h2><p>Every ingredient, grouped by kind with spirits split further. Five rated drinks unlock your palate.</p></div>
+  <div class="row">
+    <figure><div class="phone"><img src="15-ingredients.jpg" alt="Ingredients list" loading="lazy"></div><figcaption><b>Ingredients</b>Categories, subcategories and Chinese names.</figcaption></figure>
+    <figure><div class="phone"><img src="17-palate.jpg" alt="Palate flavor radar" loading="lazy"></div><figcaption><b>Your Palate</b>Flavor radar and favorite spirits.</figcaption></figure>
+    <figure><div class="phone"><img src="18-palate-more.jpg" alt="Palate details" loading="lazy"></div><figcaption><b>Love, skip, try next</b>Ingredients you love and recipes that suit you.</figcaption></figure>
+  </div>
+</section>
+
+<footer>Screens captured in the iPhone 17 Pro simulator with sample drinks.</footer>
+</div>
