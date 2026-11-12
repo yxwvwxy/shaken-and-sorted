@@ -1,6 +1,6 @@
 # Shaken & Sorted
 
-iPhone app to log the cocktails you drink and make, save recipes you want to try, and see every ingredient you've had, sorted by kind.
+An iPhone cocktail journal: log what you drink and make, save recipes to try, and see every ingredient you've had. Photograph a bar menu and swipe over it like a highlighter to fill in a drink; after five ratings it maps your palate and suggests what to make next.
 
 Everything stays on your phone. No account, no server, no API key.
 
